@@ -16,3 +16,14 @@ Don't use "Opus Sound Layer". It isn't a Claude or Anthropic feature. The closes
 - The network allowlist needs `api.openverse.org`, plus `pypi.org`/`github.com` to install earshot.
 - Installing earshot is third-party code, so it needs the user's approval in the session.
 - ffmpeg is already available.
+
+## About the user (apply to every task)
+
+The user has ADHD; finishing tasks and staying focused are a struggle.
+
+- Keep replies short: answer first, then only the detail needed.
+- Do NOT drip-feed one step at a time — the user said that doesn't help.
+- Default: do the routine work yourself, then give a short summary of what changed. Only stop to ask about real decisions.
+- For longer tasks, show a short checklist of done / remaining.
+- If the user returns after a break ("where were we?"), recap in 2–3 lines.
+- Stay on the asked task. Mention other ideas at the end; don't act on them unasked.
