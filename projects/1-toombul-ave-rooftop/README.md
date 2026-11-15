@@ -3,3 +3,7 @@
 - `1-Toombul-Ave_Rooftop_Site-Report-Scope-Drawings_RevA.pdf` — A3 set: site report, photos, scope, A-101 plan, A-201 back bar, A-202 front bar, finishes/RFIs.
 - Rebuild: `cd src && python3 build.py && node render.js` (edit dims/text in `build.py`).
 - All dims indicative — subject to site measure.
+
+## Finishes (Rev A)
+- `finish-selector.html` — interactive 3D finish selector (published as an artifact).
+- `1-Toombul-Ave_Rooftop_Finishes-Options_RevA.pdf` — 4 palette options, 2 views each (`renders/`). Rebuild: `cd src && python3 board.py && node board.js`.
