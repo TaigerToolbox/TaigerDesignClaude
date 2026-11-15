@@ -56,8 +56,12 @@ Gaussian splats (Postshot, Luma, Polycam or similar) for real-world context, sho
 
 ## Step 4: Build the site
 
-- Stack: Vite + three.js + GSAP ScrollTrigger. Scroll-scrub image sequences on a `<canvas>` (WebP or AVIF frames, preloaded in chunks).
-- All text, labels, hotspots and spec panels are HTML over the canvas, driven by `units.json` (from the unit schedule), so they stay sharp, clickable and editable without re-rendering.
+Start from `template/` in this skill folder. Copy it to `<project>/site/` and edit only `data/project.js` and the `:root` colours and fonts in `styles.css`. It's plain HTML, CSS and JS with no build step; serve it with any static server (`python -m http.server`).
+
+It already has every scene: tower hero push-in, unit picker with hotspots, a cutaway per apartment type with room captions, finishes, and a frame stage to handover before/after slider. Any scene with `frames: null` draws a code placeholder stamped PLACEHOLDER, so the flow can be shown before a single render exists. To swap in real renders, drop the sequence into `frames/<scene>/desktop/0001.webp` onward (and `mobile/` for portrait) and set `frames: { desktop: { path, count }, mobile: { path, count } }` on that scene. The picker takes one still (`scenes.picker.image`) rendered from the same camera the hotspot x/y were exported from. The before/after takes two photos per room from the same tripod spot.
+
+- Scroll-scrub is a tall section with a sticky stage; scroll progress picks the frame on a `<canvas>`. No GSAP needed. Add three.js only when a scene needs free orbit (3D unit picker, splats).
+- All text, labels, hotspots and spec panels are HTML over the canvas, driven by `data/project.js` (from the unit and finishes schedules), so they stay sharp, clickable and editable without re-rendering.
 - Mobile first: portrait sequences, fewer frames, tap instead of hover. Respect `prefers-reduced-motion` with a still-image fallback.
 - Performance budget: Lighthouse performance 85+ on mobile, first view under 3 s on 4G.
 
