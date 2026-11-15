@@ -1,0 +1,360 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>1 Toombul Ave Rooftop — Site Report, Scope &amp; Drawings Rev A</title>
+<style>@page { size: 420mm 297mm; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #fff; color: #1d1d1b; font-family: Inter, "DejaVu Sans", sans-serif; font-size: 9.5pt; line-height: 1.38; }
+.sheet { width: 420mm; height: 297mm; padding: 10mm 10mm 0; display: flex; flex-direction: column; page-break-after: always; position: relative; overflow: hidden; }
+.sheet::before { content: ""; position: absolute; inset: 6mm; border: 0.5mm solid #1d1d1b; pointer-events: none; }
+.body { flex: 1; padding: 4mm 4mm 3mm; overflow: hidden; }
+h1 { font-size: 40pt; line-height: 1.02; margin: 4mm 0 6mm; letter-spacing: -0.02em; }
+h2 { font-size: 13pt; margin: 0 0 3mm; letter-spacing: -0.01em; }
+h3 { font-size: 11pt; margin: 8mm 0 2mm; }
+h4 { font-size: 10pt; margin: 0 0 1.5mm; }
+p { margin: 0 0 3.5mm; }
+.muted { color: #777; font-weight: 400; }
+.small { font-size: 8.5pt; }
+.eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: 8.5pt; color: #8a6d3b; font-weight: 600; margin: 6mm 0 0; }
+.lede { font-size: 12pt; max-width: 150mm; color: #444; }
+table { border-collapse: collapse; width: 100%; }
+.kv td { padding: 1.4mm 0; border-bottom: 0.2mm solid #ddd; }
+.kv td:first-child { width: 38mm; color: #777; }
+.contents td { padding: 1.2mm 0; border-bottom: 0.2mm solid #eee; }
+.contents td:first-child { width: 18mm; font-weight: 600; }
+.cover { display: grid; grid-template-columns: 1fr 1.25fr; gap: 10mm; height: 100%; }
+.cover-r { display: grid; grid-template-columns: 1.4fr 1fr; gap: 3mm; height: 100%; }
+.cover-r img { width: 100%; height: 100%; object-fit: cover; }
+.cols2 { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10mm; }
+.grid th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; color: #666; border-bottom: 0.4mm solid #1d1d1b; padding: 1.5mm 2mm 1.5mm 0; }
+.grid td { vertical-align: top; padding: 1.8mm 2.5mm 1.8mm 0; border-bottom: 0.2mm solid #ddd; font-size: 8.8pt; }
+.risk { padding-left: 4.5mm; margin: 0; } .risk li { margin-bottom: 2mm; }
+.photos { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr 1fr; gap: 4mm; height: 236mm; }
+.photos figure { margin: 0; display: flex; flex-direction: column; min-height: 0; }
+.photos img { width: 100%; flex: 1; min-height: 0; object-fit: cover; }
+.photos figcaption { font-size: 8.3pt; padding-top: 1.5mm; height: 15mm; }
+.scope { columns: 3; column-gap: 8mm; }
+.scope-item { break-inside: avoid; margin-bottom: 4.5mm; }
+.scope-item ul { margin: 0; padding-left: 4.5mm; } .scope-item li { margin-bottom: 1.2mm; }
+.excl { background: #f4f1ea; padding: 3mm 4mm; }
+.rfi { padding-left: 5mm; } .rfi li { margin-bottom: 1.8mm; }
+/* drawings */
+.dwgrow { display: flex; gap: 6mm; height: 100%; align-items: flex-start; }
+.stack { display: flex; flex-direction: column; gap: 4mm; }
+.side { flex: 1; display: flex; flex-direction: column; gap: 4mm; min-width: 70mm; }
+.dwgbox { display: flex; flex-direction: column; }
+.dwgtitle { display: flex; gap: 3mm; align-items: center; font-size: 8.5pt; border-top: 0.4mm solid #1d1d1b; padding-top: 1.5mm; margin-top: 1mm; }
+.bub { width: 8mm; height: 8mm; border: 0.35mm solid #1d1d1b; border-radius: 50%; display: grid; place-items: center; font-weight: 700; }
+.sk { margin: 0; } .sk img { width: 100%; max-height: 80mm; object-fit: cover; object-position: center 40%; border: 0.2mm solid #ccc; }
+.sk figcaption { font-size: 7.8pt; color: #777; }
+.skrow { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; } .skrow img { max-height: 55mm; }
+.notes { font-size: 8.3pt; } .notes ol { margin: 0; padding-left: 4.5mm; } .notes li { margin-bottom: 1mm; }
+.legend { display: flex; flex-wrap: wrap; gap: 2mm 6mm; font-size: 8pt; margin-top: 2mm; }
+.legend span { display: flex; align-items: center; gap: 1.5mm; }
+.sw { display: inline-block; width: 6mm; height: 4mm; border: 0.25mm solid #333; }
+.sw.turf { background: #e3eedc; } .sw.cov { border-style: dashed; } .sw.colk { background: #1d1d1b; width: 4mm; }
+.sw.bar { background: #d9c7a3; } .sw.fw { border-radius: 50%; width: 4mm; }
+/* svg classes */
+svg.dwg { display: block; overflow: visible; }
+svg .l { fill: none; stroke: #1d1d1b; stroke-width: 6; }
+svg .thin { fill: none; stroke: #555; stroke-width: 3; }
+svg .floor { stroke: #1d1d1b; stroke-width: 12; }
+svg .hid { fill: none; stroke: #777; stroke-width: 4; stroke-dasharray: 30 18; }
+svg .door { fill: #fff; stroke: #1d1d1b; stroke-width: 6; }
+svg .kick { fill: #e6e6e6; stroke: #1d1d1b; stroke-width: 4; }
+svg .stone { fill: url(#stone); stroke: #1d1d1b; stroke-width: 6; }
+svg .splash { fill: #faf8f3; stroke: #999; stroke-width: 3; stroke-dasharray: 12 10; }
+svg .opt { fill: none; stroke: #999; stroke-width: 3; stroke-dasharray: 12 10; }
+svg .appl { fill: #f2f2f2; stroke: #888; stroke-width: 4; stroke-dasharray: 24 12; }
+svg .appt { fill: #777; font-weight: 600; }
+svg .swing { fill: none; stroke: #aaa; stroke-width: 3; stroke-dasharray: 18 12; }
+svg .hdl { fill: #1d1d1b; }
+svg .tap { fill: #ddd; stroke: #1d1d1b; stroke-width: 5; }
+svg polyline.tap { fill: none; stroke-width: 14; stroke-linecap: round; }
+svg .gpo { fill: #fff; stroke: #1d1d1b; stroke-width: 4; }
+svg .led { stroke: #d39b1f; stroke-width: 12; }
+svg .dim, svg .ext { stroke: #444; stroke-width: 2.5; }
+svg .dimt { stroke: #1d1d1b; stroke-width: 5; }
+svg .dt { fill: #1d1d1b; font-family: Inter, sans-serif; }
+svg .note { fill: #333; font-family: Inter, sans-serif; }
+svg .t { fill: #1d1d1b; }
+svg .lead { stroke: #555; stroke-width: 2.5; }
+svg .dot { fill: #555; }
+svg .cut { fill: #fff; stroke: #1d1d1b; stroke-width: 10; }
+svg .wallcut { fill: url(#wall); stroke: #1d1d1b; stroke-width: 8; }
+svg .rail { fill: #c9a86a; stroke: #1d1d1b; stroke-width: 4; }
+svg .rail2 { stroke: #8b7444; stroke-width: 12; }
+svg .ghost { fill: none; stroke: #9a9a9a; stroke-width: 5; stroke-dasharray: 20 12; }
+/* plan */
+svg.plan .parapet { fill: none; stroke: #1d1d1b; stroke-width: 120; stroke-linejoin: miter; }
+svg.plan .turfz { fill: #e3eedc; stroke: #6f9a5f; stroke-width: 20; }
+svg.plan .turfz { fill: url(#turf); }
+svg.plan .cover-unused { fill: rgba(0,0,0,.03); stroke: #555; stroke-width: 25; stroke-dasharray: 120 70; }
+svg.plan .col { fill: #e8e2d6; stroke: #1d1d1b; stroke-width: 15; }
+svg.plan .colk { fill: #1d1d1b; }
+svg.plan .bbar, svg.plan .fbar { fill: #d9c7a3; stroke: #1d1d1b; stroke-width: 25; }
+svg.plan .stool { fill: #fff; stroke: #1d1d1b; stroke-width: 20; }
+svg.plan .furn { fill: none; stroke: #999; stroke-width: 15; stroke-dasharray: 60 40; }
+svg.plan .fw { fill: #fff; stroke: #1d1d1b; stroke-width: 18; }
+svg.plan .door { stroke: #1d1d1b; stroke-width: 40; }
+svg.plan .swingp { fill: none; stroke: #777; stroke-width: 15; stroke-dasharray: 50 30; }
+svg.plan .lbl { fill: #1d1d1b; font-weight: 700; }
+svg.plan .lblb { fill: #1d1d1b; font-weight: 600; }
+svg.plan .dim, svg.plan .ext { stroke-width: 12; } svg.plan .dimt { stroke-width: 20; }
+/* title block */
+.tb { height: 22mm; margin: 0 -4mm 6mm; border-top: 0.5mm solid #1d1d1b; display: grid; grid-template-columns: 42mm 1.6fr 1.3fr 26mm 28mm 14mm 26mm; font-size: 8pt; }
+.tb > div { padding: 2mm 3mm; border-left: 0.25mm solid #1d1d1b; display: flex; flex-direction: column; justify-content: center; gap: .6mm; }
+.tb > div:first-child { border-left: 0; }
+.tb .k { font-size: 6.5pt; text-transform: uppercase; letter-spacing: .08em; color: #777; }
+.tb b { font-size: 9.5pt; }
+.tb-firm b { font-size: 12pt; letter-spacing: .02em; } .tb-firm span { color: #777; }
+.tb-no b { font-size: 16pt; }
+svg.plan .covr { fill: rgba(0,0,0,.03); stroke: #555; stroke-width: 25; stroke-dasharray: 120 70; }
+svg .stoneP { fill: #efe8da; stroke: #1d1d1b; stroke-width: 12; }
+svg .hidP { fill: none; stroke: #777; stroke-width: 6; stroke-dasharray: 40 24; }
+.mini { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-top: 5mm; }
+.mini figure { margin: 0; } .mini img { width: 100%; height: 72mm; object-fit: cover; } .mini figcaption { font-size: 8pt; color: #666; padding-top: 1mm; }
+.scope { font-size: 10.5pt; } .scope h4 { font-size: 11pt; } .scope-item { margin-bottom: 6mm; }
+</style></head><body><section class="sheet"><div class="body">
+<div class="cover">
+  <div class="cover-l">
+    <p class="eyebrow">Site report · Scope of works · Concept drawings</p>
+    <h1>1 Toombul Ave<br>Rooftop Terrace</h1>
+    <p class="lede">Covered outdoor bar with custom joinery and stone tops, synthetic turf, and general make-good of the rooftop terrace.</p>
+    <table class="kv">
+      <tr><td>Site inspected</td><td>15 Nov 2026</td></tr>
+      <tr><td>Revision</td><td>A — Issued for discussion & pricing</td></tr>
+      <tr><td>Status</td><td>Concept / indicative — all dimensions subject to site measure</td></tr>
+    </table>
+    <h3>Contents</h3>
+    <table class="contents"><tr><td>00</td><td>Cover & contents</td></tr><tr><td>01</td><td>Site report — existing conditions</td></tr><tr><td>02</td><td>Site photographs</td></tr><tr><td>03</td><td>Scope of works</td></tr><tr><td>A-101</td><td>Indicative layout plan</td></tr><tr><td>A-201</td><td>Back bar — elevation, section & bar plan</td></tr><tr><td>A-202</td><td>Front bar — elevations & section</td></tr><tr><td>04</td><td>Finishes schedule, RFIs & next steps</td></tr></table>
+  </div>
+  <div class="cover-r"><img src="photos/IMG_9199.jpg"><img src="photos/IMG_9194.jpg"></div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Cover &amp; contents</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>00</b></div>
+</div></section><section class="sheet"><div class="body">
+<div class="cols2">
+ <div>
+  <h2>Brief</h2>
+  <p>Client wants to turn the rooftop terrace into a usable entertaining space: a <b>bar under the existing cover</b> with
+  custom <b>joinery and stone</b> (back bar with sink, drawers and 2 × bar fridges; island front bar with keg fridge &amp; beer taps, open shelving and bin),
+  <b>synthetic turf</b>, and general clean-up / make-good. Client sketches (back bar, front bar both sides, layout) were reviewed on site and are
+  reproduced with the drawings.</p>
+  <h2>Site summary</h2>
+  <p>Large open rooftop terrace on a multi-storey residential building, with two skillion roof covers on steel columns, rendered parapets,
+  a membrane-coated slab, a plastic storage shed, and access through a gate from the stair/lift lobby. Exposed elevated coastal setting
+  with district and hinterland views.</p>
+  <h2>Key risks</h2>
+  <ul class="risk">
+   <li><b>Waterproofing</b> — every item touching the slab (turf, joinery feet, plumbing penetrations) must protect the membrane. Get it inspected first.</li>
+   <li><b>Sink drainage</b> — sewer connection on a roof is the biggest unknown and cost driver. A pump-out unit is the fallback.</li>
+   <li><b>Body corporate</b> — approval needed for fixed works, plumbing and electrical on (likely) common property.</li>
+   <li><b>Weathering</b> — wind-driven rain, UV & salt: specify exterior materials and UV-stable stone.</li>
+   <li><b>Access</b> — stone and joinery must fit the lift, or be jointed / craned.</li>
+  </ul>
+  <div class="mini"><figure><img src="photos/IMG_9197.jpg"><figcaption>P5 — proposed bar zone under Cover 01</figcaption></figure>
+  <figure><img src="photos/IMG_9200.jpg"><figcaption>P7 — membrane staining, floor waste, hose across deck</figcaption></figure></div>
+ </div>
+ <div>
+  <h2>Existing conditions</h2>
+  <table class="grid obs"><thead><tr><th style="width:16%">Element</th><th>Observed</th><th style="width:38%">Implication</th></tr></thead><tbody><tr><td><b>Structure / roof</b></td><td>Two skillion roof covers on black-painted steel columns, set on rendered concrete plinths (~400 sq). FC sheet soffit with exposed fixings; quad gutters & downpipes.</td><td>Bar fits under Cover 01. Confirm soffit height (assumed ~2450). No fixings into soffit/columns without BC/engineer OK.</td></tr><tr><td><b>Floor</b></td><td>Concrete slab with sand-coloured trafficable membrane coating. Widespread dark staining & mould, worn patches, ponding marks near drains. Floor wastes (round grates) present.</td><td>Membrane condition & warranty must be confirmed before turf. Turf must not be mechanically fixed through membrane; drains to stay accessible.</td></tr><tr><td><b>Walls / parapets</b></td><td>Rendered masonry parapets ~1.1–1.2 m; taller rendered lift/plant wall. Water streaking & mould to wall faces; minor cracking.</td><td>Soft-wash + mould treatment, repaint. Back bar fixes to wall — check wall build-up & membrane upturn.</td></tr><tr><td><b>Drainage</b></td><td>Downpipes discharge directly onto deck beside plinths, causing staining. Floor wastes appear clear (to verify).</td><td>Extend downpipes to floor waste / spreader. Sink waste CANNOT go to stormwater — needs sewer connection or pump-out.</td></tr><tr><td><b>Services</b></td><td>Weatherproof GPO near shed, garden tap & wall hose reel at entry, bunker lights, festoon string lights on hooks. No plumbing or dedicated circuits visible at bar zone.</td><td>New hot/cold + sewer drainage and dedicated circuits needed for sink, keg fridge, 2 x bar fridges, LED.</td></tr><tr><td><b>Access</b></td><td>Rooftop accessed via entry gate from stair/lift lobby.</td><td>Check lift car size for stone slabs (2.8 m bench) & joinery modules — may need a joint or crane lift.</td></tr><tr><td><b>Exposure</b></td><td>Elevated coastal rooftop: high wind, UV and salt air. Covers give partial protection only.</td><td>Use exterior-grade joinery materials, 316 SS hardware, UV-stable sintered/porcelain stone (NOT engineered quartz).</td></tr><tr><td><b>Existing items</b></td><td>Loose outdoor furniture, folding tables, wire bar stools, egg-chair stand, mirror, clothes airer, planter (rubber tree), shed, bike, hoses, debris.</td><td>Clear and dispose / store before works. Shed retained (confirm).</td></tr></tbody></table>
+ </div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Site report — existing conditions</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>01</b></div>
+</div></section><section class="sheet"><div class="body"><h2>Site photographs</h2><div class="photos"><figure><img src="photos/IMG_9192.jpg"><figcaption><b>P1</b> Looking across covered dining zone to shed, planter and south-east corner. Second cover at right. Downpipe discharges at column plinth.</figcaption></figure><figure><img src="photos/IMG_9193.jpg"><figcaption><b>P2</b> Open corner beside cover: folding table + stools. Membrane coating stained/worn. Rendered parapet ~1.1–1.2 m.</figcaption></figure><figure><img src="photos/IMG_9194.jpg"><figcaption><b>P3</b> Walkway between the two skillion covers. Quad gutters each side; open sky over walkway — rain &amp; UV exposure here.</figcaption></figure><figure><img src="photos/IMG_9196.jpg"><figcaption><b>P4</b> Plastic garden shed (fridge + boards stored). Weatherproof GPO on wall at right. Hose lying across floor.</figcaption></figure><figure><img src="photos/IMG_9197.jpg"><figcaption><b>P5</b> Covered zone near entry gate — candidate bar location. Bunker light on wall, steel column on rendered plinth.</figcaption></figure><figure><img src="photos/IMG_9199.jpg"><figcaption><b>P6</b> Main covered area: black steel columns, FC soffit with exposed fixings. Mould / dark staining on membrane.</figcaption></figure><figure><img src="photos/IMG_9200.jpg"><figcaption><b>P7</b> Shed side &amp; column. Floor waste grate visible mid-image. Hose and debris on floor.</figcaption></figure><figure><img src="photos/IMG_9202.jpg"><figcaption><b>P8</b> Under-cover view to entry gate &amp; hose reel. Tall rendered wall (lift/plant) shows vertical water staining.</figcaption></figure></div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Site photographs</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>02</b></div>
+</div></section><section class="sheet"><div class="body"><h2>Scope of works <span class="muted">— for pricing; read with A-101, A-201, A-202</span></h2>
+<div class="scope"><div class="scope-item"><h4>1. Preliminaries & approvals</h4><ul><li>Body corporate approval — confirm exclusive-use vs common property, by-laws, contractor induction &amp; lift booking.</li><li>Detailed site measure; confirm soffit height, wall set-out, column positions &amp; falls to drains.</li><li>Protect membrane, lift &amp; common areas throughout works. Rubbish removal.</li></ul></div><div class="scope-item"><h4>2. Clean & make good</h4><ul><li>Remove loose items/debris; low-pressure clean slab (protect membrane); mould treatment to slab, walls, plinths.</li><li>Inspect membrane; repair/recoat as required by waterproofer before turf (flood test where repaired).</li><li>Extend downpipes to nearest floor waste / spreader; clear and test floor wastes.</li></ul></div><div class="scope-item"><h4>3. Plumbing (licensed)</h4><ul><li>Cold (and hot — under-sink instantaneous unit option) to bar sink; isolation valves.</li><li>Sink waste to sewer via nearest stack, or grey-water pump-out unit if gravity not achievable. Keg drip-tray drain to sink waste.</li><li>Compliance certificate on completion.</li></ul></div><div class="scope-item"><h4>4. Electrical (licensed)</h4><ul><li>Dedicated RCD-protected circuits: keg fridge, bar fridge 01, bar fridge 02.</li><li>2 x weatherproof double GPOs in splashback; IP65 LED strip under overheads with driver &amp; switch.</li><li>Re-hang festoon lighting; optional feature pendants over front bar.</li></ul></div><div class="scope-item"><h4>5. Joinery — back bar (A-201)</h4><ul><li>2.8 m run: sink pair doors 900, 3-drawer bank 600, cavity for 2 x under-bench bar fridges (2 x 620).</li><li>Overheads 700 h x 350 d @ 1550 AFL: pair 900 / open cubbies 600 / pair 800 / single 500. Optional bulkhead infill to soffit.</li><li>Exterior-grade carcass (marine ply 2-pac or compact laminate), 316 SS hinges &amp; runners, soft-close, adjustable feet, vented kick.</li></ul></div><div class="scope-item"><h4>6. Joinery — front bar (A-202)</h4><ul><li>2.7 m island: keg-fridge cabinet pair 1100, open shelving 900, bin bay 660 (drawer over twin bin pull-out).</li><li>Customer face fluted / batten cladding (TBC); 316 SS or brass footrest rail @ ~270 AFL.</li><li>Bar top 1050 AFL with 300 overhang for 4 stools @ 600 crs.</li></ul></div><div class="scope-item"><h4>7. Stone</h4><ul><li>20 mm UV-stable sintered/porcelain stone, 40 mm mitred apron to all exposed edges (per client note).</li><li>Undermount sink &amp; tap cut-outs; beer-font cut-out; waterfall ends to front bar (option); splashback (option).</li><li>Template after joinery install; check lift access for slab lengths.</li></ul></div><div class="scope-item"><h4>8. Synthetic turf</h4><ul><li>Free-draining, UV-stabilised turf (~35–40 mm, no sand infill) on protection/drainage underlay over membrane.</li><li>Loose-laid with joining tape &amp; perimeter edging — no fixings through membrane. Removable access at floor wastes.</li><li>Extent per A-101 (TBC). Lighter tone recommended to limit surface heat.</li></ul></div><div class="scope-item"><h4>9. Painting & finishes</h4><ul><li>Treat any rust &amp; repaint steel columns; clean/repaint FC soffit, render walls &amp; plinths.</li></ul></div><div class="scope-item excl"><h4>Exclusions / by others</h4><ul><li>Appliances (keg fridge, bar fridges), beer system, gas &amp; kegs — by others unless noted.</li><li>Loose furniture &amp; bar stools (FF&amp;E) — by others.</li><li>Structural engineering &amp; body corporate fees.</li><li>Membrane replacement beyond local repair (price separately once inspected).</li></ul></div></div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Scope of works</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>03</b></div>
+</div></section><section class="sheet"><div class="body">
+<div class="dwgrow">
+ <div class="dwgbox"><svg class="dwg plan" viewBox="-600 -7400 13600 8300" style="width:302.2mm;height:184.4mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><polygon points="2600,-1500 2600,-6350 12150,-6350 12150,-250 7550,-250 7550,-1500" class="turfz"/><polyline points="0,0 0,-6600 12400,-6600 12400,0 7300,0 7300,-1300 3100,-1300 3100,0 0,0" class="parapet"/><rect x="150" y="-6450" width="6500" height="2850" class="covr"/><text x="4500" y="-6250" font-size="150" text-anchor="middle" class="note">EXISTING COVER 01</text><rect x="7400" y="-6450" width="4850" height="4850" class="covr"/><text x="9825" y="-6250" font-size="150" text-anchor="middle" class="note">EXISTING COVER 02</text><rect x="2350" y="-3850" width="300" height="300" class="col"/><rect x="2455" y="-3745" width="90" height="90" class="colk"/><rect x="6400" y="-3850" width="300" height="300" class="col"/><rect x="6505" y="-3745" width="90" height="90" class="colk"/><rect x="7350" y="-1850" width="300" height="300" class="col"/><rect x="7455" y="-1745" width="90" height="90" class="colk"/><rect x="7350" y="-4650" width="300" height="300" class="col"/><rect x="7455" y="-4545" width="90" height="90" class="colk"/><rect x="12000" y="-1850" width="300" height="300" class="col"/><rect x="12105" y="-1745" width="90" height="90" class="colk"/><rect x="12000" y="-4650" width="300" height="300" class="col"/><rect x="12105" y="-4545" width="90" height="90" class="colk"/><rect x="0" y="-6600" width="600" height="2800" class="bbar"/><rect x="1700" y="-6400" width="900" height="2500" class="fbar"/><circle cx="2900" cy="-4400" r="170" class="stool"/><circle cx="2900" cy="-5000" r="170" class="stool"/><circle cx="2900" cy="-5600" r="170" class="stool"/><circle cx="2900" cy="-6200" r="170" class="stool"/><text x="300" y="-5200" font-size="140" text-anchor="middle" class="lbl" transform="rotate(-90 300 -5200)">BACK BAR</text><text x="2150" y="-5150" font-size="140" text-anchor="middle" class="lbl" transform="rotate(-90 2150 -5150)">FRONT BAR</text><line x1="560" y1="-3250" x2="1740" y2="-3250" class="dim"/><line x1="578" y1="-3228" x2="622" y2="-3272" class="dimt"/><line x1="1678" y1="-3228" x2="1722" y2="-3272" class="dimt"/><text x="1150.0" y="-3268" font-size="130" text-anchor="middle" class="dt">1000–1100</text><text x="1150" y="-3200" font-size="140" text-anchor="middle" class="lblb">BAR ZONE — SEE A-201 / A-202</text><line x1="3100" y1="-1300" x2="3100" y2="-400" class="door"/><path d="M3100 -400 A900 900 0 0 1 4000 -1300" class="swingp"/><text x="5200" y="-650" font-size="160" text-anchor="middle" class="lblb">ENTRY / STAIR &amp; LIFT LOBBY</text><rect x="10200" y="-1400" width="1900" height="1100" class="furn"/><text x="11150" y="-780" font-size="130" text-anchor="middle" class="note">EXIST. SHED (RETAIN)</text><rect x="8200" y="-4000" width="2600" height="1400" class="furn"/><text x="9500" y="-3220" font-size="130" text-anchor="middle" class="note">DINING (LOOSE)</text><rect x="8000" y="-6000" width="3500" height="1000" class="furn"/><text x="9750" y="-5420" font-size="130" text-anchor="middle" class="note">LOUNGE (LOOSE)</text><rect x="4200" y="-6200" width="2200" height="1000" class="furn"/><text x="5300" y="-5620" font-size="130" text-anchor="middle" class="note">LOUNGE / BAR SEATING</text><circle cx="5200" cy="-2600" r="120" class="fw"/><text x="5200" y="-2300" font-size="120" text-anchor="middle" class="note">FW</text><circle cx="9600" cy="-1500" r="120" class="fw"/><text x="9600" y="-1200" font-size="120" text-anchor="middle" class="note">FW</text><text x="1200" y="-2600" font-size="120" text-anchor="middle" class="note">HOSE REEL &amp; GATE</text><text x="12100" y="-7050" font-size="170" text-anchor="end" class="lblb">SCHEMATIC — NOT TO SCALE</text></svg>
+  <div class="dwgtitle"><span class="bub">1</span><div><b>INDICATIVE LAYOUT PLAN</b><br>Schematic only — traced from client sketch &amp; photos. Not to scale.</div></div>
+  <div class="legend">
+   <span><i class="sw turf"></i>Proposed synthetic turf (extent TBC)</span>
+   <span><i class="sw cov"></i>Existing roof cover</span>
+   <span><i class="sw colk"></i>Existing steel column on plinth</span>
+   <span><i class="sw bar"></i>New bar joinery</span>
+   <span><i class="sw fw"></i>FW Floor waste (approx.)</span>
+  </div>
+ </div>
+ <div class="side">
+  <figure class="sk"><img src="sketches/IMG_9204_plan.jpg"><figcaption>Client layout sketch</figcaption></figure>
+  <div class="notes"><h4>Notes</h4><ol>
+   <li>Layout is diagrammatic. Overall size, column and drain positions to be confirmed on site measure.</li>
+   <li>Bar zone under Cover 01 near the entry, per client sketch. Back bar on wall; island front bar with 4 stools facing the terrace.</li>
+   <li>Keep min. 1000 mm work aisle between back and front bar; 1000 mm clear path past stools.</li>
+   <li>Turf loose-laid on underlay over membrane; drains stay accessible.</li>
+  </ol></div>
+ </div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Indicative layout plan</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>A-101</b></div>
+</div></section><section class="sheet"><div class="body">
+<div class="dwgrow">
+ <div class="dwgbox"><svg class="dwg " viewBox="-650 -2780 4350 3230" style="width:217.5mm;height:161.5mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><line x1="-300" y1="0" x2="3100" y2="0" class="floor"/><line x1="-300" y1="-2450" x2="3100" y2="-2450" class="hid"/><text x="3090" y="-2475" font-size="40" text-anchor="end" class="note">U/S EXISTING SOFFIT (HEIGHT TBC)</text><rect x="0" y="-860" width="30" height="860" class="l"/><rect x="2770" y="-860" width="30" height="860" class="l"/><rect x="30" y="-120" width="1500" height="120" class="kick"/><rect x="32" y="-860" width="446" height="740" class="door"/><polyline points="478,-120 32,-490.0 478,-860" class="swing"/><rect x="482" y="-860" width="446" height="740" class="door"/><polyline points="482,-120 928,-490.0 482,-860" class="swing"/><rect x="444" y="-800" width="12" height="160" class="hdl"/><rect x="504" y="-800" width="12" height="160" class="hdl"/><rect x="0" y="-1550" width="2800" height="650" class="splash"/><rect x="150" y="-840" width="660" height="200" class="hid"/><polyline points="480,-900 480,-1230 500,-1280 560,-1300 620,-1270 630,-1200" class="tap"/><rect x="932" y="-858" width="596" height="198" class="door"/><rect x="1150.0" y="-806" width="160" height="12" class="hdl"/><rect x="932" y="-658" width="596" height="268" class="door"/><rect x="1150.0" y="-606" width="160" height="12" class="hdl"/><rect x="932" y="-388" width="596" height="268" class="door"/><rect x="1150.0" y="-336" width="160" height="12" class="hdl"/><rect x="1540" y="-845" width="600" height="845" class="appl"/><text x="1840" y="-460.0" font-size="46" text-anchor="middle" class="appt">BAR FRIDGE</text><text x="1840" y="-390.0" font-size="40" text-anchor="middle" class="appt">01 (BY OTHERS)</text><rect x="2160" y="-845" width="600" height="845" class="appl"/><text x="2460" y="-460.0" font-size="46" text-anchor="middle" class="appt">BAR FRIDGE</text><text x="2460" y="-390.0" font-size="40" text-anchor="middle" class="appt">02 (BY OTHERS)</text><rect x="2094" y="-660" width="12" height="320" class="hdl"/><rect x="2194" y="-660" width="12" height="320" class="hdl"/><rect x="0" y="-900" width="2800" height="40" class="stone"/><rect x="1090" y="-1150" width="120" height="70" class="gpo"/><rect x="2240" y="-1150" width="120" height="70" class="gpo"/><rect x="0" y="-2250" width="900" height="700" class="door"/><rect x="450" y="-2250" width="0.1" height="700" class="l"/><polyline points="448,-1550 2,-1900.0 448,-2250" class="swing"/><polyline points="452,-1550 898,-1900.0 452,-2250" class="swing"/><rect x="414" y="-1750" width="12" height="160" class="hdl"/><rect x="474" y="-1750" width="12" height="160" class="hdl"/><rect x="900" y="-2250" width="600" height="700" class="l"/><line x1="1200" y1="-1550" x2="1200" y2="-2250" class="l"/><line x1="900" y1="-1783.3333333333333" x2="1500" y2="-1783.3333333333333" class="l"/><line x1="900" y1="-2016.6666666666667" x2="1500" y2="-2016.6666666666667" class="l"/><rect x="1500" y="-2250" width="800" height="700" class="door"/><line x1="1900" y1="-1550" x2="1900" y2="-2250" class="l"/><polyline points="1898,-1550 1502,-1900.0 1898,-2250" class="swing"/><polyline points="1902,-1550 2298,-1900.0 1902,-2250" class="swing"/><rect x="1864" y="-1750" width="12" height="160" class="hdl"/><rect x="1924" y="-1750" width="12" height="160" class="hdl"/><rect x="2300" y="-2250" width="500" height="700" class="door"/><polyline points="2302,-1550 2798,-1900.0 2302,-2250" class="swing"/><rect x="2324" y="-1750" width="12" height="160" class="hdl"/><line x1="20" y1="-1538" x2="2780" y2="-1538" class="led"/><rect x="0" y="-2450" width="2800" height="200" class="opt"/><line x1="-40" y1="330" x2="2840" y2="330" class="dim"/><line x1="-22" y1="352" x2="22" y2="308" class="dimt"/><line x1="2778" y1="352" x2="2822" y2="308" class="dimt"/><text x="1400.0" y="312" font-size="50" text-anchor="middle" class="dt">2800 OVERALL (TBC ON SITE MEASURE)</text><line x1="-40" y1="170" x2="970" y2="170" class="dim"/><line x1="-22" y1="192" x2="22" y2="148" class="dimt"/><line x1="908" y1="192" x2="952" y2="148" class="dimt"/><text x="465.0" y="152" font-size="50" text-anchor="middle" class="dt">930</text><line x1="890" y1="170" x2="1570" y2="170" class="dim"/><line x1="908" y1="192" x2="952" y2="148" class="dimt"/><line x1="1508" y1="192" x2="1552" y2="148" class="dimt"/><text x="1230.0" y="152" font-size="50" text-anchor="middle" class="dt">600</text><line x1="1490" y1="170" x2="2810" y2="170" class="dim"/><line x1="1508" y1="192" x2="1552" y2="148" class="dimt"/><line x1="2748" y1="192" x2="2792" y2="148" class="dimt"/><text x="2150.0" y="152" font-size="50" text-anchor="middle" class="dt">1240</text><line x1="2730" y1="170" x2="2840" y2="170" class="dim"/><line x1="2748" y1="192" x2="2792" y2="148" class="dimt"/><line x1="2778" y1="192" x2="2822" y2="148" class="dimt"/><text x="2785.0" y="152" font-size="50" text-anchor="middle" class="dt">30</text><line x1="-40" y1="-2600" x2="940" y2="-2600" class="dim"/><line x1="-22" y1="-2578" x2="22" y2="-2622" class="dimt"/><line x1="878" y1="-2578" x2="922" y2="-2622" class="dimt"/><text x="450.0" y="-2618" font-size="50" text-anchor="middle" class="dt">900</text><line x1="860" y1="-2600" x2="1540" y2="-2600" class="dim"/><line x1="878" y1="-2578" x2="922" y2="-2622" class="dimt"/><line x1="1478" y1="-2578" x2="1522" y2="-2622" class="dimt"/><text x="1200.0" y="-2618" font-size="50" text-anchor="middle" class="dt">600</text><line x1="1460" y1="-2600" x2="2340" y2="-2600" class="dim"/><line x1="1478" y1="-2578" x2="1522" y2="-2622" class="dimt"/><line x1="2278" y1="-2578" x2="2322" y2="-2622" class="dimt"/><text x="1900.0" y="-2618" font-size="50" text-anchor="middle" class="dt">800</text><line x1="2260" y1="-2600" x2="2840" y2="-2600" class="dim"/><line x1="2278" y1="-2578" x2="2322" y2="-2622" class="dimt"/><line x1="2778" y1="-2578" x2="2822" y2="-2622" class="dimt"/><text x="2550.0" y="-2618" font-size="50" text-anchor="middle" class="dt">500</text><line x1="-150" y1="40" x2="-150" y2="-160" class="dim"/><line x1="-172" y1="22" x2="-128" y2="-22" class="dimt"/><line x1="-172" y1="-98" x2="-128" y2="-142" class="dimt"/><text x="-168" y="-60.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -168 -60.0)">120</text><line x1="-300" y1="40" x2="-300" y2="-940" class="dim"/><line x1="-322" y1="22" x2="-278" y2="-22" class="dimt"/><line x1="-322" y1="-878" x2="-278" y2="-922" class="dimt"/><text x="-318" y="-450.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -318 -450.0)">900</text><line x1="-450" y1="40" x2="-450" y2="-1590" class="dim"/><line x1="-472" y1="22" x2="-428" y2="-22" class="dimt"/><line x1="-472" y1="-1528" x2="-428" y2="-1572" class="dimt"/><text x="-468" y="-775.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -468 -775.0)">1550</text><line x1="-150" y1="-1510" x2="-150" y2="-2290" class="dim"/><line x1="-172" y1="-1528" x2="-128" y2="-1572" class="dimt"/><line x1="-172" y1="-2228" x2="-128" y2="-2272" class="dimt"/><text x="-168" y="-1900.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -168 -1900.0)">700</text><line x1="2950" y1="-820" x2="2950" y2="-940" class="dim"/><line x1="2928" y1="-838" x2="2972" y2="-882" class="dimt"/><line x1="2928" y1="-878" x2="2972" y2="-922" class="dimt"/><text x="2932" y="-880.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 2932 -880.0)">40</text><line x1="2700" y1="-880" x2="3000" y2="-1020" class="lead"/><circle cx="2700" cy="-880" r="9" class="dot"/><text x="3015" y="-1005" font-size="48" text-anchor="start" class="note">20mm STONE, 40mm MITRED APRON</text><line x1="2600" y1="-1300" x2="3000" y2="-1450" class="lead"/><circle cx="2600" cy="-1300" r="9" class="dot"/><text x="3015" y="-1435" font-size="48" text-anchor="start" class="note">SPLASHBACK – STONE / TILE (OPTION)</text><line x1="2500" y1="-1538" x2="3000" y2="-1370" class="lead"/><circle cx="2500" cy="-1538" r="9" class="dot"/><text x="3015" y="-1355" font-size="48" text-anchor="start" class="note">LED STRIP, IP65, U/S OVERHEADS</text><line x1="1150" y1="-1115" x2="1350" y2="-1300" class="lead"/><circle cx="1150" cy="-1115" r="9" class="dot"/><text x="1365" y="-1285" font-size="48" text-anchor="start" class="note">DBL GPO (WEATHERPROOF)</text><line x1="1200" y1="-1950" x2="1300" y2="-2210" class="lead"/><circle cx="1200" cy="-1950" r="9" class="dot"/><text x="1315" y="-2195" font-size="48" text-anchor="start" class="note">OPEN SHELVING</text><line x1="600" y1="-1280" x2="760" y2="-1420" class="lead"/><circle cx="600" cy="-1280" r="9" class="dot"/><text x="775" y="-1405" font-size="48" text-anchor="start" class="note">SINK MIXER (316 SS)</text><line x1="2600" y1="-2350" x2="3000" y2="-2380" class="lead"/><circle cx="2600" cy="-2350" r="9" class="dot"/><text x="3015" y="-2365" font-size="48" text-anchor="start" class="note">BULKHEAD INFILL (OPTION)</text><line x1="1700" y1="-60" x2="3000" y2="-260" class="lead"/><circle cx="1700" cy="-60" r="9" class="dot"/><text x="3015" y="-245" font-size="48" text-anchor="start" class="note">VENTED KICK / FRIDGE CLEARANCE</text></svg>
+  <div class="dwgtitle"><span class="bub">1</span><div><b>BACK BAR — ELEVATION</b><br>1:20 @ A3</div></div></div>
+ <div class="stack"><div class="dwgbox"><svg class="dwg " viewBox="-300 -2750 1600 3100" style="width:64.0mm;height:124.0mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><rect x="-150" y="-2450" width="150" height="2450" class="wallcut"/><line x1="-150" y1="0" x2="1300" y2="0" class="floor"/><line x1="-150" y1="-2450" x2="1300" y2="-2450" class="hid"/><rect x="0" y="-860" width="580" height="740" class="cut"/><rect x="0" y="-120" width="520" height="120" class="kick"/><rect x="0" y="-900" width="620" height="20" class="stone"/><rect x="600" y="-900" width="20" height="40" class="stone"/><rect x="0" y="-2250" width="350" height="700" class="cut"/><line x1="0" y1="-1900.0" x2="350" y2="-1900.0" class="thin"/><rect x="0" y="-2450" width="350" height="200" class="opt"/><line x1="-40" y1="180" x2="660" y2="180" class="dim"/><line x1="-22" y1="202" x2="22" y2="158" class="dimt"/><line x1="598" y1="202" x2="642" y2="158" class="dimt"/><text x="310.0" y="162" font-size="50" text-anchor="middle" class="dt">620</text><line x1="-40" y1="-2370" x2="390" y2="-2370" class="dim"/><line x1="-22" y1="-2348" x2="22" y2="-2392" class="dimt"/><line x1="328" y1="-2348" x2="372" y2="-2392" class="dimt"/><text x="175.0" y="-2388" font-size="50" text-anchor="middle" class="dt">350</text><line x1="820" y1="40" x2="820" y2="-940" class="dim"/><line x1="798" y1="22" x2="842" y2="-22" class="dimt"/><line x1="798" y1="-878" x2="842" y2="-922" class="dimt"/><text x="802" y="-450.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 802 -450.0)">900</text><line x1="820" y1="-1510" x2="820" y2="-2290" class="dim"/><line x1="798" y1="-1528" x2="842" y2="-1572" class="dimt"/><line x1="798" y1="-2228" x2="842" y2="-2272" class="dimt"/><text x="802" y="-1900.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 802 -1900.0)">700</text><line x1="820" y1="-860" x2="820" y2="-1590" class="dim"/><line x1="798" y1="-878" x2="842" y2="-922" class="dimt"/><line x1="798" y1="-1528" x2="842" y2="-1572" class="dimt"/><text x="802" y="-1225.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 802 -1225.0)">650</text><line x1="300" y1="-890" x2="500" y2="-1150" class="lead"/><circle cx="300" cy="-890" r="9" class="dot"/><text x="515" y="-1135" font-size="48" text-anchor="start" class="note">STONE TOP</text><line x1="200" y1="-400" x2="450" y2="-560" class="lead"/><circle cx="200" cy="-400" r="9" class="dot"/><text x="465" y="-545" font-size="48" text-anchor="start" class="note">EXT. GRADE CARCASS</text></svg>
+  <div class="dwgtitle"><span class="bub">2</span><div><b>SECTION</b><br>1:25 @ A3</div></div></div>
+  <div class="dwgbox"><svg class="dwg " viewBox="-400 -3650 3900 3950" style="width:78.0mm;height:79.0mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><rect x="-300" y="-3250" width="3400" height="150" class="wallcut"/><rect x="0" y="-3100" width="2800" height="620" class="stoneP"/><rect x="0" y="-3100" width="2800" height="600" class="hidP"/><rect x="180" y="-2960" width="600" height="380" class="l"/><circle cx="480" cy="-3020" r="30" class="l"/><rect x="1540" y="-3080" width="600" height="560" class="hid"/><rect x="2160" y="-3080" width="600" height="560" class="hid"/><text x="1430" y="-2770" font-size="110" text-anchor="middle" class="appt">BACK BAR</text><rect x="0" y="-1430" width="2700" height="920" class="stoneP"/><rect x="20" y="-1410" width="2660" height="580" class="hid"/><rect x="370" y="-1410" width="400" height="120" class="tap"/><text x="1350" y="-980" font-size="110" text-anchor="middle" class="appt">FRONT BAR</text><circle cx="450" cy="-240" r="180" class="ghost"/><circle cx="1050" cy="-240" r="180" class="ghost"/><circle cx="1650" cy="-240" r="180" class="ghost"/><circle cx="2250" cy="-240" r="180" class="ghost"/><line x1="-40" y1="-3500" x2="2840" y2="-3500" class="dim"/><line x1="-22" y1="-3478" x2="22" y2="-3522" class="dimt"/><line x1="2778" y1="-3478" x2="2822" y2="-3522" class="dimt"/><text x="1400.0" y="-3518" font-size="100" text-anchor="middle" class="dt">2800</text><line x1="3050" y1="-1390" x2="3050" y2="-2520" class="dim"/><line x1="3028" y1="-1408" x2="3072" y2="-1452" class="dimt"/><line x1="3028" y1="-2458" x2="3072" y2="-2502" class="dimt"/><text x="3032" y="-1955.0" font-size="90" text-anchor="middle" class="dt" transform="rotate(-90 3032 -1955.0)">1050 AISLE</text><line x1="3050" y1="-470" x2="3050" y2="-1470" class="dim"/><line x1="3028" y1="-488" x2="3072" y2="-532" class="dimt"/><line x1="3028" y1="-1408" x2="3072" y2="-1452" class="dimt"/><text x="3032" y="-970.0" font-size="90" text-anchor="middle" class="dt" transform="rotate(-90 3032 -970.0)">920</text><line x1="3050" y1="-2440" x2="3050" y2="-3140" class="dim"/><line x1="3028" y1="-2458" x2="3072" y2="-2502" class="dimt"/><line x1="3028" y1="-3078" x2="3072" y2="-3122" class="dimt"/><text x="3032" y="-2790.0" font-size="90" text-anchor="middle" class="dt" transform="rotate(-90 3032 -2790.0)">620</text><text x="1350" y="150" font-size="100" text-anchor="middle" class="note">TERRACE / STOOLS</text></svg>
+  <div class="dwgtitle"><span class="bub">3</span><div><b>BAR PLAN</b><br>1:50 @ A3</div></div></div></div>
+ <div class="side">
+  <figure class="sk"><img src="sketches/IMG_9206_back-bar.jpg"><figcaption>Client sketch — back bar</figcaption></figure>
+  <div class="notes"><h4>Notes</h4><ol>
+   <li>All dims in mm, indicative, subject to site measure &amp; appliance specs.</li>
+   <li>Bar fridge cavity 860 clear under stone — confirm models ≤ 850 H with front venting.</li>
+   <li>Door-swing triangles point to hinge side.</li>
+   <li>Stone 20 mm with 40 mm mitred apron, all exposed edges.</li>
+   <li>Sink waste to sewer / pump-out — never stormwater.</li>
+  </ol></div>
+ </div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Back bar — elevation, section &amp; bar plan</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>1:20 / 1:25 / 1:50</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>A-201</b></div>
+</div></section><section class="sheet"><div class="body">
+<div class="dwgrow">
+ <div class="stack">
+  <div class="dwgbox"><svg class="dwg " viewBox="-650 -1770 4350 2200" style="width:217.5mm;height:110.0mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><line x1="-300" y1="0" x2="3000" y2="0" class="floor"/><rect x="0" y="-1050" width="20" height="1050" class="stone"/><rect x="2680" y="-1050" width="20" height="1050" class="stone"/><rect x="0" y="-1050" width="2700" height="40" class="stone"/><rect x="20" y="-120" width="2660" height="120" class="kick"/><rect x="22" y="-1010" width="546" height="890" class="door"/><polyline points="568,-120 22,-565.0 568,-1010" class="swing"/><rect x="572" y="-1010" width="546" height="890" class="door"/><polyline points="572,-120 1118,-565.0 572,-1010" class="swing"/><rect x="534" y="-950" width="12" height="200" class="hdl"/><rect x="594" y="-950" width="12" height="200" class="hdl"/><rect x="140" y="-900" width="860" height="760" class="appl"/><text x="570" y="-590" font-size="44" text-anchor="middle" class="appt">KEG FRIDGE</text><text x="570" y="-520" font-size="38" text-anchor="middle" class="appt">(BY OTHERS)</text><rect x="1120" y="-1010" width="900" height="890" class="l"/><line x1="1120" y1="-565.0" x2="2020" y2="-565.0" class="l"/><text x="1570" y="-760.8" font-size="46" text-anchor="middle" class="note">OPEN</text><rect x="2022" y="-1008" width="656" height="198" class="door"/><rect x="2270.0" y="-946" width="160" height="12" class="hdl"/><rect x="2022" y="-808" width="656" height="688" class="door"/><rect x="2270.0" y="-736" width="160" height="12" class="hdl"/><text x="2350.0" y="-420" font-size="40" text-anchor="middle" class="note">BIN PULL-OUT</text><rect x="510" y="-1430" width="120" height="380" class="tap"/><rect x="370" y="-1520" width="400" height="90" class="tap"/><rect x="448" y="-1430" width="24" height="150" class="tap"/><rect x="442" y="-1640" width="36" height="120" class="tap"/><rect x="668" y="-1430" width="24" height="150" class="tap"/><rect x="662" y="-1640" width="36" height="120" class="tap"/><rect x="310" y="-1075" width="520" height="25" class="tap"/><line x1="-40" y1="330" x2="2740" y2="330" class="dim"/><line x1="-22" y1="352" x2="22" y2="308" class="dimt"/><line x1="2678" y1="352" x2="2722" y2="308" class="dimt"/><text x="1350.0" y="312" font-size="50" text-anchor="middle" class="dt">2700 OVERALL (TBC)</text><line x1="-20" y1="170" x2="1160" y2="170" class="dim"/><line x1="-2" y1="192" x2="42" y2="148" class="dimt"/><line x1="1098" y1="192" x2="1142" y2="148" class="dimt"/><text x="570.0" y="152" font-size="50" text-anchor="middle" class="dt">1100</text><line x1="1080" y1="170" x2="2060" y2="170" class="dim"/><line x1="1098" y1="192" x2="1142" y2="148" class="dimt"/><line x1="1998" y1="192" x2="2042" y2="148" class="dimt"/><text x="1570.0" y="152" font-size="50" text-anchor="middle" class="dt">900</text><line x1="1980" y1="170" x2="2720" y2="170" class="dim"/><line x1="1998" y1="192" x2="2042" y2="148" class="dimt"/><line x1="2658" y1="192" x2="2702" y2="148" class="dimt"/><text x="2350.0" y="152" font-size="50" text-anchor="middle" class="dt">660</text><line x1="-150" y1="40" x2="-150" y2="-160" class="dim"/><line x1="-172" y1="22" x2="-128" y2="-22" class="dimt"/><line x1="-172" y1="-98" x2="-128" y2="-142" class="dimt"/><text x="-168" y="-60.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -168 -60.0)">120</text><line x1="-300" y1="40" x2="-300" y2="-1090" class="dim"/><line x1="-322" y1="22" x2="-278" y2="-22" class="dimt"/><line x1="-322" y1="-1028" x2="-278" y2="-1072" class="dimt"/><text x="-318" y="-525.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -318 -525.0)">1050</text><line x1="770" y1="-1480" x2="1170" y2="-1610" class="lead"/><circle cx="770" cy="-1480" r="9" class="dot"/><text x="1185" y="-1595" font-size="48" text-anchor="start" class="note">2-TAP BEER FONT + DRIP TRAY</text><line x1="2690" y1="-600" x2="2950" y2="-760" class="lead"/><circle cx="2690" cy="-600" r="9" class="dot"/><text x="2965" y="-745" font-size="48" text-anchor="start" class="note">STONE WATERFALL END (OPTION)</text></svg>
+   <div class="dwgtitle"><span class="bub">1</span><div><b>FRONT BAR — SERVER SIDE</b><br>1:20 @ A3</div></div></div>
+  <div class="dwgbox"><svg class="dwg " viewBox="-800 -1350 4500 1780" style="width:225.0mm;height:89.0mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><line x1="-300" y1="0" x2="3000" y2="0" class="floor"/><rect x="0" y="-1050" width="20" height="1050" class="stone"/><rect x="2680" y="-1050" width="20" height="1050" class="stone"/><rect x="0" y="-1050" width="2700" height="40" class="stone"/><rect x="20" y="-1010" width="2660" height="1010" class="l"/><line x1="60" y1="-60" x2="60" y2="-990" class="thin"/><line x1="140" y1="-60" x2="140" y2="-990" class="thin"/><line x1="220" y1="-60" x2="220" y2="-990" class="thin"/><line x1="300" y1="-60" x2="300" y2="-990" class="thin"/><line x1="380" y1="-60" x2="380" y2="-990" class="thin"/><line x1="460" y1="-60" x2="460" y2="-990" class="thin"/><line x1="540" y1="-60" x2="540" y2="-990" class="thin"/><line x1="620" y1="-60" x2="620" y2="-990" class="thin"/><line x1="700" y1="-60" x2="700" y2="-990" class="thin"/><line x1="780" y1="-60" x2="780" y2="-990" class="thin"/><line x1="860" y1="-60" x2="860" y2="-990" class="thin"/><line x1="940" y1="-60" x2="940" y2="-990" class="thin"/><line x1="1020" y1="-60" x2="1020" y2="-990" class="thin"/><line x1="1100" y1="-60" x2="1100" y2="-990" class="thin"/><line x1="1180" y1="-60" x2="1180" y2="-990" class="thin"/><line x1="1260" y1="-60" x2="1260" y2="-990" class="thin"/><line x1="1340" y1="-60" x2="1340" y2="-990" class="thin"/><line x1="1420" y1="-60" x2="1420" y2="-990" class="thin"/><line x1="1500" y1="-60" x2="1500" y2="-990" class="thin"/><line x1="1580" y1="-60" x2="1580" y2="-990" class="thin"/><line x1="1660" y1="-60" x2="1660" y2="-990" class="thin"/><line x1="1740" y1="-60" x2="1740" y2="-990" class="thin"/><line x1="1820" y1="-60" x2="1820" y2="-990" class="thin"/><line x1="1900" y1="-60" x2="1900" y2="-990" class="thin"/><line x1="1980" y1="-60" x2="1980" y2="-990" class="thin"/><line x1="2060" y1="-60" x2="2060" y2="-990" class="thin"/><line x1="2140" y1="-60" x2="2140" y2="-990" class="thin"/><line x1="2220" y1="-60" x2="2220" y2="-990" class="thin"/><line x1="2300" y1="-60" x2="2300" y2="-990" class="thin"/><line x1="2380" y1="-60" x2="2380" y2="-990" class="thin"/><line x1="2460" y1="-60" x2="2460" y2="-990" class="thin"/><line x1="2540" y1="-60" x2="2540" y2="-990" class="thin"/><line x1="2620" y1="-60" x2="2620" y2="-990" class="thin"/><rect x="20" y="-60" width="2660" height="60" class="kick"/><rect x="60" y="-270" width="2580" height="40" class="rail"/><line x1="300" y1="-230" x2="300" y2="0" class="rail2"/><line x1="1350.0" y1="-230" x2="1350.0" y2="0" class="rail2"/><line x1="2400" y1="-230" x2="2400" y2="0" class="rail2"/><rect x="250.0" y="-780" width="400" height="40" class="ghost"/><line x1="290.0" y1="-740" x2="250.0" y2="0" class="ghost"/><line x1="610.0" y1="-740" x2="650.0" y2="0" class="ghost"/><line x1="265.0" y1="-300" x2="635.0" y2="-300" class="ghost"/><rect x="850.0" y="-780" width="400" height="40" class="ghost"/><line x1="890.0" y1="-740" x2="850.0" y2="0" class="ghost"/><line x1="1210.0" y1="-740" x2="1250.0" y2="0" class="ghost"/><line x1="865.0" y1="-300" x2="1235.0" y2="-300" class="ghost"/><rect x="1450.0" y="-780" width="400" height="40" class="ghost"/><line x1="1490.0" y1="-740" x2="1450.0" y2="0" class="ghost"/><line x1="1810.0" y1="-740" x2="1850.0" y2="0" class="ghost"/><line x1="1465.0" y1="-300" x2="1835.0" y2="-300" class="ghost"/><rect x="2050.0" y="-780" width="400" height="40" class="ghost"/><line x1="2090.0" y1="-740" x2="2050.0" y2="0" class="ghost"/><line x1="2410.0" y1="-740" x2="2450.0" y2="0" class="ghost"/><line x1="2065.0" y1="-300" x2="2435.0" y2="-300" class="ghost"/><line x1="-40" y1="330" x2="2740" y2="330" class="dim"/><line x1="-22" y1="352" x2="22" y2="308" class="dimt"/><line x1="2678" y1="352" x2="2722" y2="308" class="dimt"/><text x="1350.0" y="312" font-size="50" text-anchor="middle" class="dt">2700 OVERALL (TBC)</text><line x1="410.0" y1="-1250" x2="1090.0" y2="-1250" class="dim"/><line x1="428.0" y1="-1228" x2="472.0" y2="-1272" class="dimt"/><line x1="1028.0" y1="-1228" x2="1072.0" y2="-1272" class="dimt"/><text x="750.0" y="-1268" font-size="50" text-anchor="middle" class="dt">600 CRS</text><line x1="1010.0" y1="-1250" x2="1690.0" y2="-1250" class="dim"/><line x1="1028.0" y1="-1228" x2="1072.0" y2="-1272" class="dimt"/><line x1="1628.0" y1="-1228" x2="1672.0" y2="-1272" class="dimt"/><text x="1350.0" y="-1268" font-size="50" text-anchor="middle" class="dt">600 CRS</text><line x1="1610.0" y1="-1250" x2="2290.0" y2="-1250" class="dim"/><line x1="1628.0" y1="-1228" x2="1672.0" y2="-1272" class="dimt"/><line x1="2228.0" y1="-1228" x2="2272.0" y2="-1272" class="dimt"/><text x="1950.0" y="-1268" font-size="50" text-anchor="middle" class="dt">600 CRS</text><line x1="-150" y1="40" x2="-150" y2="-310" class="dim"/><line x1="-172" y1="22" x2="-128" y2="-22" class="dimt"/><line x1="-172" y1="-248" x2="-128" y2="-292" class="dimt"/><text x="-168" y="-135.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -168 -135.0)">270</text><line x1="-300" y1="40" x2="-300" y2="-820" class="dim"/><line x1="-322" y1="22" x2="-278" y2="-22" class="dimt"/><line x1="-322" y1="-758" x2="-278" y2="-802" class="dimt"/><text x="-318" y="-390.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -318 -390.0)">~760 SEAT</text><line x1="-450" y1="40" x2="-450" y2="-1090" class="dim"/><line x1="-472" y1="22" x2="-428" y2="-22" class="dimt"/><line x1="-472" y1="-1028" x2="-428" y2="-1072" class="dimt"/><text x="-468" y="-525.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 -468 -525.0)">1050</text><line x1="2300" y1="-600" x2="2950" y2="-760" class="lead"/><circle cx="2300" cy="-600" r="9" class="dot"/><text x="2965" y="-745" font-size="48" text-anchor="start" class="note">FLUTED / BATTEN CLADDING – TBC</text><line x1="2500" y1="-250" x2="2950" y2="-380" class="lead"/><circle cx="2500" cy="-250" r="9" class="dot"/><text x="2965" y="-365" font-size="48" text-anchor="start" class="note">FOOTREST RAIL – 316 SS / BRASS</text><line x1="2400.0" y1="-760" x2="2950" y2="-1100" class="lead"/><circle cx="2400.0" cy="-760" r="9" class="dot"/><text x="2965" y="-1085" font-size="48" text-anchor="start" class="note">BAR STOOLS x4 (FF&amp;E, BY OTHERS)</text></svg>
+   <div class="dwgtitle"><span class="bub">2</span><div><b>FRONT BAR — CUSTOMER SIDE</b><br>1:20 @ A3</div></div></div>
+ </div>
+ <div class="stack">
+  <div class="dwgbox"><svg class="dwg " viewBox="-1800 -1510 3400 1770" style="width:170.0mm;height:88.5mm" xmlns="http://www.w3.org/2000/svg"><defs>
+<pattern id="stone" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="60" stroke="#8a8a8a" stroke-width="3"/></pattern>
+<pattern id="turf" width="120" height="120" patternUnits="userSpaceOnUse">
+ <path d="M20 90 l10 -25 l10 25 M70 40 l10 -25 l10 25" stroke="#5f8f55" stroke-width="7" fill="none"/></pattern>
+<pattern id="wall" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+ <line x1="0" y1="0" x2="0" y2="80" stroke="#444" stroke-width="5"/></pattern>
+<pattern id="slab" width="100" height="100" patternUnits="userSpaceOnUse">
+ <circle cx="25" cy="30" r="5" fill="#777"/><circle cx="70" cy="75" r="4" fill="#777"/><path d="M60 20 l12 8 l-14 4z" fill="none" stroke="#777" stroke-width="3"/></pattern>
+</defs><line x1="-700" y1="0" x2="1500" y2="0" class="floor"/><rect x="0" y="-1010" width="580" height="890" class="cut"/><rect x="60" y="-120" width="520" height="120" class="kick"/><rect x="580" y="-1010" width="20" height="1010" class="cut"/><rect x="-20" y="-1050" width="920" height="20" class="stone"/><rect x="-20" y="-1050" width="20" height="40" class="stone"/><rect x="880" y="-1050" width="20" height="40" class="stone"/><line x1="0" y1="-565.0" x2="580" y2="-565.0" class="thin"/><circle cx="690" cy="-250" r="25" class="rail"/><line x1="600" y1="-250" x2="665" y2="-250" class="rail2"/><rect x="950" y="-780" width="400" height="40" class="ghost"/><line x1="990" y1="-740" x2="950" y2="0" class="ghost"/><line x1="1310" y1="-740" x2="1350" y2="0" class="ghost"/><rect x="-1720" y="-900" width="620" height="900" class="ghost"/><line x1="-60" y1="-1200" x2="940" y2="-1200" class="dim"/><line x1="-42" y1="-1178" x2="2" y2="-1222" class="dimt"/><line x1="878" y1="-1178" x2="922" y2="-1222" class="dimt"/><text x="440.0" y="-1218" font-size="50" text-anchor="middle" class="dt">920 TOP</text><line x1="560" y1="-1350" x2="940" y2="-1350" class="dim"/><line x1="578" y1="-1328" x2="622" y2="-1372" class="dimt"/><line x1="878" y1="-1328" x2="922" y2="-1372" class="dimt"/><text x="750.0" y="-1368" font-size="50" text-anchor="middle" class="dt">300 O/HANG</text><line x1="-1140" y1="-500" x2="20" y2="-500" class="dim"/><line x1="-1122" y1="-478" x2="-1078" y2="-522" class="dimt"/><line x1="-42" y1="-478" x2="2" y2="-522" class="dimt"/><text x="-560.0" y="-518" font-size="50" text-anchor="middle" class="dt">1000–1100 WORK AISLE</text><line x1="1440" y1="40" x2="1440" y2="-1090" class="dim"/><line x1="1418" y1="22" x2="1462" y2="-22" class="dimt"/><line x1="1418" y1="-1028" x2="1462" y2="-1072" class="dimt"/><text x="1422" y="-525.0" font-size="50" text-anchor="middle" class="dt" transform="rotate(-90 1422 -525.0)">1050</text><text x="-1410" y="-960" font-size="44" text-anchor="middle" class="appt">BACK BAR</text><text x="290" y="-300" font-size="40" text-anchor="middle" class="note">SERVER SIDE</text><text x="1150" y="-950" font-size="40" text-anchor="middle" class="note">CUSTOMER</text></svg>
+   <div class="dwgtitle"><span class="bub">3</span><div><b>SECTION THROUGH BAR</b><br>1:20 @ A3</div></div></div>
+  <div class="skrow">
+   <figure class="sk"><img src="sketches/IMG_9205_front-bar-server.jpg"><figcaption>Client sketch — server side</figcaption></figure>
+   <figure class="sk"><img src="sketches/IMG_9207_front-bar-customer.jpg"><figcaption>Client sketch — customer side</figcaption></figure>
+  </div>
+  <div class="notes"><h4>Notes</h4><ol>
+   <li>Single-level top at 1050 AFL (bar height) — confirm vs split level (900 work / 1100 bar).</li>
+   <li>Keg fridge needs front-breathing plinth; check model width fits 1100 bay.</li>
+   <li>Beer font, lines &amp; drip tray drain coordinated with keg supplier.</li>
+  </ol></div>
+ </div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Front bar — elevations &amp; section</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>1:20</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>A-202</b></div>
+</div></section><section class="sheet"><div class="body">
+<div class="cols2">
+ <div><h2>Finishes &amp; materials schedule</h2>
+  <table class="grid"><thead><tr><th>Code</th><th>Item</th><th>Specification</th><th>Note</th></tr></thead><tbody><tr><td><b>ST-01</b></td><td>Bar tops</td><td>20 mm sintered / porcelain stone, 40 mm mitred apron</td><td class='muted'>UV-stable; colour TBC</td></tr><tr><td><b>ST-02</b></td><td>Waterfall ends / splash</td><td>As ST-01</td><td class='muted'>Option</td></tr><tr><td><b>JN-01</b></td><td>Carcass</td><td>Marine ply (2-pac) or compact laminate</td><td class='muted'>No HMR / MDF outdoors</td></tr><tr><td><b>JN-02</b></td><td>Door & drawer fronts</td><td>2-pac polyurethane or compact laminate</td><td class='muted'>Colour TBC</td></tr><tr><td><b>JN-03</b></td><td>Front bar cladding</td><td>Fluted panel / hardwood battens</td><td class='muted'>TBC</td></tr><tr><td><b>HW-01</b></td><td>Hinges / runners</td><td>316 stainless, soft-close</td><td class='muted'>Coastal grade</td></tr><tr><td><b>HW-02</b></td><td>Handles / footrest</td><td>316 SS or solid brass</td><td class='muted'>TBC</td></tr><tr><td><b>PL-01</b></td><td>Sink & mixer</td><td>316 SS undermount sink, gooseneck mixer</td><td class='muted'></td></tr><tr><td><b>EL-01</b></td><td>LED strip</td><td>IP65 aluminium channel, 3000K</td><td class='muted'>U/S overheads</td></tr><tr><td><b>TF-01</b></td><td>Synthetic turf</td><td>Perforated, UV-stabilised, no infill</td><td class='muted'>On drainage underlay</td></tr></tbody></table>
+  <p class="muted small">Engineered quartz is not recommended outdoors — UV causes yellowing and most suppliers void the warranty for exterior use.</p>
+ </div>
+ <div><h2>Questions for client (RFIs)</h2><ol class="rfi"><li>Confirm bar location (assumed under Cover 01, near entry — per sketch) and turf extent.</li><li>Soffit height under Cover 01 and wall construction behind back bar.</li><li>Appliance models: keg fridge (no. of kegs / taps — 2 taps shown), bar fridge sizes (≤ 600 W x 850 H assumed).</li><li>Hot water at sink required? Glass rinser wanted?</li><li>Stone selection &amp; joinery colour/finish; customer-face cladding style.</li><li>Lift car internal dimensions (stone &amp; joinery delivery).</li><li>Exclusive-use status, membrane age/warranty, and target budget.</li></ol>
+  <h2>Next steps</h2>
+  <ol class="rfi">
+   <li>Client answers RFIs; body corporate application lodged.</li>
+   <li>Waterproofer inspects membrane; plumber confirms sewer route (or pump-out).</li>
+   <li>Full site measure → Rev B drawings with confirmed dimensions &amp; appliance specs.</li>
+   <li>Issue Rev B to joiner, stonemason, plumber, electrician &amp; turf installer for quotes.</li>
+  </ol></div>
+</div></div><div class="tb">
+  <div class="tb-firm"><b>Taiger Design</b><span>Design & documentation</span></div>
+  <div class="tb-proj"><span class="k">Project</span><b>1 Toombul Ave — Rooftop Terrace</b><span>Covered outdoor bar, joinery & stone, synthetic turf</span></div>
+  <div class="tb-cell"><span class="k">Sheet</span><b>Finishes schedule, RFIs &amp; next steps</b></div>
+  <div class="tb-cell s"><span class="k">Scale @ A3</span><b>NTS</b></div>
+  <div class="tb-cell s"><span class="k">Date</span><b>15 Nov 2026</b></div>
+  <div class="tb-cell s"><span class="k">Rev</span><b>A</b></div>
+  <div class="tb-no"><span class="k">Dwg no.</span><b>04</b></div>
+</div></section></body></html>
