@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Project showcase</title>
+  <meta name="description" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -11,96 +12,28 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#hero" data-bind="name"></a>
-    <nav>
-      <a href="#residences">Residences</a>
-      <a href="#inside">Inside</a>
-      <a href="#finishes">Finishes</a>
-      <a href="#build">The build</a>
-      <a class="enquire" data-href="enquireUrl" href="#">Enquire</a>
-    </nav>
+    <a class="brand" href="#top" data-bind="name"></a>
+    <nav aria-label="Sections"></nav>
   </header>
 
-  <main>
-    <section id="hero" class="scrub" style="--len: 300vh">
-      <div class="stage">
-        <canvas role="img" aria-label="Exterior of the building, camera pushing in toward the upper levels"></canvas>
-        <div class="hero-copy">
-          <p class="eyebrow" data-bind="address"></p>
-          <h1 data-bind="name"></h1>
-          <p class="lede" data-bind="tagline"></p>
-        </div>
-        <p class="scroll-hint" aria-hidden="true">Scroll</p>
-        <p class="stamp" data-bind="disclaimer"></p>
-      </div>
-    </section>
-
-    <section id="residences" class="band">
-      <div class="band-head">
-        <p class="eyebrow">Residences</p>
-        <h2>Pick a home on the building.</h2>
-      </div>
-      <div class="picker-wrap">
-        <div class="picker">
-          <canvas role="img" aria-label="The building, with a marker on each residence"></canvas>
-          <img class="picker-img" alt="" hidden>
-          <div class="hotspots"></div>
-        </div>
-        <aside class="unit-panel" aria-live="polite">
-          <p class="muted">Select a residence on the building to see its details.</p>
-        </aside>
-      </div>
-    </section>
-
-    <section id="inside" class="scrub" style="--len: 500vh">
-      <div class="stage">
-        <canvas role="img" aria-label="Cutaway of the apartment, camera moving room to room"></canvas>
-        <div class="type-tabs" role="tablist" aria-label="Apartment type"></div>
-        <div class="caption off" aria-live="polite">
-          <p class="eyebrow cap-type"></p>
-          <h3 class="cap-room"></h3>
-          <p class="cap-text"></p>
-        </div>
-        <p class="stamp" data-bind="disclaimer"></p>
-      </div>
-    </section>
-
-    <section id="finishes" class="band">
-      <div class="band-head">
-        <p class="eyebrow">Finishes</p>
-        <h2>Specified, not imagined.</h2>
-        <p class="muted" data-bind="finishesRevision"></p>
-      </div>
-      <ul class="finishes"></ul>
-    </section>
-
-    <section id="build" class="band">
-      <div class="band-head">
-        <p class="eyebrow">The build</p>
-        <h2>Same room. Frame stage to handover.</h2>
-      </div>
-      <div class="compare-tabs" role="tablist" aria-label="Room"></div>
-      <div class="compare">
-        <div class="pane before"><span class="tag"></span></div>
-        <div class="pane after"><span class="tag"></span></div>
-        <div class="handle" aria-hidden="true"></div>
-        <input type="range" min="0" max="100" value="50" aria-label="Drag to compare frame stage and handover">
-      </div>
-    </section>
+  <main id="top">
+    <noscript><p class="band">This showcase needs JavaScript for its interactive scenes.</p></noscript>
   </main>
 
-  <footer id="enquire">
+  <footer>
     <div>
       <p class="brand" data-bind="name"></p>
       <p class="muted" data-bind="address"></p>
     </div>
-    <p class="muted small" data-bind="disclaimer"></p>
+    <p class="muted small footer-disclaimer"></p>
     <a class="credit" href="https://taigergroup.com.au" target="_blank" rel="noopener">
       <img src="assets/taiger-emblem.png" alt="" width="20" height="20"> Built by Taiger Group
     </a>
   </footer>
 
+  <!-- data first: the project content, then what the render pipeline produced -->
   <script src="data/project.js"></script>
+  <script src="frames/manifest.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

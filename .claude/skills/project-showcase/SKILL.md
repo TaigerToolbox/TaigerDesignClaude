@@ -1,105 +1,120 @@
 ---
 name: project-showcase
-description: Build an accurate, high-end interactive showcase website (scroll-driven tower hero, unit hotspots, apartment cutaways, room fly-throughs, construction progress timeline) for any construction build or development. Use when asked to make a project website, development showcase, scroll experience, cutaway, fly-through or marketing page for a building. Geometry and finishes come from the real design model, never from generative AI.
+description: Build an accurate, high-end scroll showcase website for any construction project (apartments, houses, renovations, fitouts, commercial, industrial, civil, builder progress stories) from the project's real design model or drawings. Rendered sequences, unit/room hotspots, cutaways, eye-level rooms, finishes, before/after. Use when asked for a project website, development showcase, scroll experience, cutaway, fly-through or marketing page for a build. Geometry, layouts, finishes and views come from the real documents, never from generative AI.
 ---
 
 # Project showcase
 
-A repeatable pipeline that produces the "tower → cutaway → room" scroll experience, built from the project's real model so every wall, window, view and finish is correct.
+The "building → cutaway → room" scroll experience, rendered from the project's own model so every wall, window, view and finish is right. Tested end to end on the buildingSMART IFC4 sample house: IFC → Blender → WebP sequences → this template.
 
 ## The one rule
 
-**Generative AI never decides what the building looks like.** All geometry, layouts, finishes and views come from the source documents below. AI is allowed only for finishing touches that don't misrepresent the building (see step 5). Image or video generators that invent rooms are what make results look like AI slop and can mislead buyers.
+**Generative AI never decides what the building looks like.** Geometry, layouts, sizes, finishes and views come from the source documents. AI image/video generators invent rooms and morph between frames; that's what reads as AI slop, and on an off-the-plan sale it's misleading conduct under the Australian Consumer Law. AI is allowed only for the narrow finishing jobs in step 6.
 
-## Step 0: Intake (don't start without these)
+## What's in this folder
 
-Ask for these and record what's missing in `brief.md` in the project folder:
+| Path | What it does |
+|---|---|
+| `scripts/ifc_to_obj.py` | IFC → OBJ + `scene.json`. Class whitelist (no services/footings/openings), keeps `IfcClass|GlobalId|Name` per object and the IFC style name per face, exports spaces (bounds, centroids), storeys, true north, site lat/long. Normal Python: `pip install ifcopenshell`. |
+| `scripts/blender_render.py` | Builds the scene and renders every shot in `shots.json` for desktop (16:9) and mobile (9:16), encodes WebP, writes `site/frames/manifest.js` (frame counts, picker hotspots projected through the real camera, plan scale). Run with `blender -b --factory-startup -P blender_render.py -- shots.json`. |
+| `template/` | The site. Plain HTML/CSS/JS, no build. Content in `data/project.js`, render output in `frames/`. |
 
-| Input | Why | Usual source |
-|---|---|---|
-| Design model: IFC (preferred), Revit, ArchiCAD or SketchUp | All geometry | Architect |
-| Architectural set: plans, elevations, sections (PDF) | QA checks | Architect |
-| Finishes and FF&E schedule, plus supplier product codes | Real materials | Architect or interior designer |
-| Unit schedule: unit no., type, level, beds/baths, internal/external m², aspect | Hotspot data, spec panels | Developer or sales agent |
-| Site survey and coordinates | Placing the model in the real world | Surveyor |
-| Drone photos/video of the site and surroundings, plus a capture from each key floor height | Real context and real views from apartments | Drone operator (CASA licensed) |
-| Brand: logo, fonts, colours, the project name | Look of the site | Developer |
-| Written approval to use the design and renders publicly | IP and marketing sign-off | Developer and architect |
+`blender_render.py` already does: finishes from a CSV (stops on any unmapped IFC material), weld + 6 mm bevel on every edge (sharp IFC edges are the biggest CG tell), AgX colour, sun from real lat/long/date rotated to the model's true north, sky matched to the sun, fixed Cycles seed (no boiling noise between frames), eased camera moves, level eye-height interior cameras, roof-off cutaways by name pattern, an orthographic plan render with metres-per-pixel for QA, frame-count assertions and a size report.
 
-## Step 1: Model to clean scene
+Shot kinds: `orbit` (hero, exterior), `cutaway` (roof off, descend into a target space), `room` (eye level 1.6 m, level camera, slow dolly across a space), `still` (picker image + hotspots), `plan` (QA ortho). Engine: `EEVEE` for drafts on a laptop, `CYCLES` for finals on a GPU box or render farm.
 
-1. Convert IFC to a Blender scene (Bonsai add-on, formerly BlenderBIM) or `IfcConvert model.ifc model.glb` (IfcOpenShell). Revit can go out as IFC or via Datasmith/Twinmotion.
-2. Clean up: remove hidden services, structure and annotation; merge by material; fix normals; keep real dimensions (metres, Z up → Y up for glTF).
-3. Map materials from the finishes schedule (script it: schedule code → material). Use supplier textures and scanned PBR materials, at real-world scale.
-4. Geolocate with the survey coordinates and set the true sun position for the site's latitude.
+## Step 0: Intake
 
-## Step 2: Build the scene library
+Record what you have and what's missing in `brief.md`. Anything you had to assume goes in an **Assumed** list for the architect to clear.
 
-Every project uses the same set of scenes, so the site template stays the same:
+**Must:** current plans, elevations and sections with their revision letter · finishes schedule · site address and survey north point · written approval from the developer and architect to publish · for multi-unit jobs, the unit schedule (number, type, level, beds/baths, internal/external m², aspect, status).
 
-1. **Hero:** exterior at golden hour or dusk, placed into drone footage or a Gaussian splat of the real street.
-2. **Context:** orbit of the neighbourhood (splat or photogrammetry from drone capture), with labels for transport, parks and amenities.
-3. **Unit picker:** tower with a hotspot on each unit. Hotspot positions come from the model's room centroids, not placed by hand.
-4. **Cutaway:** one per apartment type, roof and upper slab removed, built from the same model and labelled with the unit schedule data.
-5. **Rooms:** 2 to 4 per type (living/kitchen, main bed, main bath, balcony view). Views out of the windows use the real drone capture from that floor height.
-6. **Specs:** finishes and appliance brands from the schedule.
-7. **Progress (for builders):** monthly drone splat of site progress on a timeline slider, side by side with the model. Builders can show this and marketing agencies can't.
+**Should:** IFC (best) or Revit/ArchiCAD/SketchUp model · survey with MGA coordinates and RLs · supplier product codes, samples or photos · landscape plan · brand kit · drone capture of the site, plus HDR brackets or 360s at each key floor height for window views.
 
-## Step 3: Render
+**Nice:** furniture/styling selections · approved neighbouring developments (massing) · monthly progress drone or photo captures · lighting plan · interior designer boards.
 
-Two delivery modes; most sites use both:
+**Minimum that still gives a good result:** dimensioned plans + elevations, finishes schedule, address, approval. That's enough for an accurate exterior, a cutaway and 2 to 3 rooms. Window views and progress scenes need real captures: drop those scenes rather than fake them.
 
-- **Photoreal scroll sequences:** path-traced in Blender Cycles (or D5, Twinmotion, Enscape) from the real model. Camera moves (facade push-in → cutaway → into room) rendered as image sequences at 30 fps, 1920 wide for desktop and a separate portrait 1080×1920 for mobile. Claude writes the Blender Python for camera paths, materials and batch rendering. CPU renders are slow, so use a GPU box or render farm for final frames.
-- **Real-time 3D:** glTF/GLB with Draco or meshopt compression and KTX2 textures, baked lighting, in three.js. Use for the unit picker and any free orbit. Keep under about 15 MB for the first load.
+## Step 1: Geometry
 
-Gaussian splats (Postshot, Luma, Polycam or similar) for real-world context, shown with a three.js splat viewer.
+**From IFC:** `python scripts/ifc_to_obj.py model.ifc work/`. Read the printed material list and `scene.json` `skipped` entries. Override the whitelist with `--classes` for unusual jobs (civil: `IfcCourse,IfcPavement,IfcKerb,IfcBearing,...`). Don't merge meshes before QA: per-element identity is how faces trace back to the model.
 
-## Step 4: Build the site
+**No IFC (most houses, extensions, fitouts):** rebuild in Blender from the drawings. Import each PDF page as a scaled underlay (calibrate from a long dimension string, not the printed scale). Model walls and openings **to the written dimensions**, never by tracing the PDF. Heights from the sections. SketchUp: import, then fix reversed faces, scale and material assignment. Name objects `Class|id|name` and materials by finish code so the rest of the pipeline is identical. Every dimension you had to infer goes in **Assumed**.
 
-Start from `template/` in this skill folder. Copy it to `<project>/site/` and edit only `data/project.js` and the `:root` colours and fonts in `styles.css`. It's plain HTML, CSS and JS with no build step; serve it with any static server (`python -m http.server`).
+**Interiors with no furniture in the model:** use an approved styling layer of real products (manufacturer models or a vetted library) in its own collection named `furniture`, captioned "furniture indicative, not included". QA can switch it off.
 
-It already has every scene: tower hero push-in, unit picker with hotspots, a cutaway per apartment type with room captions, finishes, and a frame stage to handover before/after slider. Any scene with `frames: null` draws a code placeholder stamped PLACEHOLDER, so the flow can be shown before a single render exists. To swap in real renders, drop the sequence into `frames/<scene>/desktop/0001.webp` onward (and `mobile/` for portrait) and set `frames: { desktop: { path, count }, mobile: { path, count } }` on that scene. The picker takes one still (`scenes.picker.image`) rendered from the same camera the hotspot x/y were exported from. The before/after takes two photos per room from the same tripod spot.
+## Step 2: Materials
 
-- Scroll-scrub is a tall section with a sticky stage; scroll progress picks the frame on a `<canvas>`. No GSAP needed. Add three.js only when a scene needs free orbit (3D unit picker, splats).
-- All text, labels, hotspots and spec panels are HTML over the canvas, driven by `data/project.js` (from the unit and finishes schedules), so they stay sharp, clickable and editable without re-rendering.
-- Mobile first: portrait sequences, fewer frames, tap instead of hover. Respect `prefers-reduced-motion` with a still-image fallback.
-- Performance budget: Lighthouse performance 85+ on mobile, first view under 3 s on 4G.
+`finishes.csv` columns: `ifc_material,color,roughness,metallic,transmission,hide`. One row per IFC material name the converter printed. `hide=1` for markers and virtual elements. Colours in sRGB hex from the supplier's published value or a calibrated photo of the sample. For finals, replace flat colours with scanned PBR textures at real-world scale: albedo in sRGB, roughness and normal maps as Non-Color, box/triplanar mapping (IFC has no UVs). Glass gets `transmission`. Australian context only: Colorbond colours by name, eucalypts not deciduous European trees, right-hand-drive cars.
 
-## Step 5: Where AI is allowed
+## Step 3: Scene library by project type
 
-Only for these, and each one gets checked against the drawings:
+The template is a list of sections, so each project turns on only what it needs. Every project gets: **hero, specs, enquire**, and where the data exists, **context** and **figures**.
 
-- Upscaling and denoising rendered frames.
-- Sky replacement on renders (not on real photos of views).
-- Adding people and cars to scenes as entourage.
-- Copywriting drafts, which the developer approves.
+| Project | Scenes |
+|---|---|
+| Apartments / townhouses | picker (units on the facade), cutaway per type, rooms, views by level |
+| Single house | exterior orbit, cutaway or plan reveal, 3 to 5 rooms at eye level, outdoor living, sun study |
+| Renovation / extension | existing vs proposed `compare` from the same camera (existing from photos or a scan), extension footprint, rooms |
+| Fitout | tenancy in context, cutaway per zone, finishes board |
+| Commercial / industrial | site orbit with access/loading/parking captions, figures (GFA, clearance, docks, power), office interior |
+| Civil / infrastructure | corridor `scrub` along the alignment, `compare` per stage or chainage, figures; no rooms, no cutaway |
+| Progress story (any of the above) | `compare` pairs per milestone from the same tripod or drone spot, frame stage to handover |
 
-Never for: building geometry, layouts, room sizes, window positions, finishes, views from windows, or anything a buyer could rely on.
+## Step 4: Cameras and render
 
-## Step 6: Accuracy QA gate (must pass before anything is shown)
+- **Lenses:** exteriors 35 to 50 mm, interiors 18 to 24 mm and never above 90° horizontal FOV. Wide lenses that make rooms look bigger are misleading, not just ugly. Eye height 1.6 m. Interior and eye-level cameras stay level (the `room` kind does this); correct with lens shift, never tilt.
+- **Moves:** every move eased. 120 to 180 frames for a hero, 90 to 150 for a cutaway; phones get about 60% (the script does this). Frame count, not fps, decides scrub smoothness.
+- **Sun:** pick the date and time on purpose and record it (21 June, 3 pm shows honest winter shadows). True north from the survey, not the plan's arrow; `trueNorth` from the IFC is used when present.
+- **Window views:** camera-mapped backplates from the drone capture at that unit's GPS position and RL, exposure matched, capture date recorded. Model approved but unbuilt neighbours as massing so views aren't oversold.
+- **Finals:** Cycles, enough samples that the fixed-seed denoiser is temporally stable. Scrub the sequence at 2x and look for flicker before encoding. Render at native size; don't AI-upscale sequences (it flickers and hallucinates detail).
+- **Encoding:** WebP quality 70 to 80 (the script uses 78). Budget: under ~120 KB per desktop frame and ~8 MB per mobile sequence. Check the size report the script prints.
 
-1. **Overlay check:** render the plan view and each elevation from the scene camera, then overlay them on the architect's PDFs at 50% opacity. Window, door and wall positions must line up.
-2. **Finishes check:** every visible material matches the current finishes schedule revision. Note the revision on the site.
-3. **Data check:** every hotspot, area and bed/bath count matches the unit schedule.
-4. **View check:** window views match the drone capture for that level and orientation.
-5. **Sign-off:** architect and developer approve in writing. Keep a record in `qa/`.
-6. **Disclaimer:** "Artist's impression. Final design, finishes and views may vary." on every render and in the footer.
+## Step 5: Build the site
 
-## Step 7: Hand over
+Copy `template/` to `<project>/site/` and point `shots.json` `site` at it. Then edit only `data/project.js` and the `:root` tokens in `styles.css`.
 
-- Host on Vercel, Netlify or the client's site; give the client a private preview link first.
-- Promo cut for social media: record the scroll experience as a video, then follow the sound design steps in the repo's CLAUDE.md.
-- Save the scene file, render settings and `units.json` so the next design revision can be re-rendered in hours instead of weeks.
+- Sections: `scrub`, `cutaway`, `picker`, `stats`, `specs`, `compare`, in any order, any can be `off: true`. A section with missing data is skipped and logged; the rest of the page still builds. All labels and wording live in the data (Residence, Lot, Tenancy, Stage, Room), nothing apartment-specific is hard-coded.
+- `frames: "<shot name>"` links a section to a rendered shot. Until it's rendered, the scene draws a stamped PLACEHOLDER.
+- Picker units use `anchor: "<space name>"`; `blender_render.py` writes that space's exact x/y for the picker camera into the manifest. The picker box takes the image's own aspect ratio, so hotspots can't drift.
+- How the scrub works: tall section, sticky stage, scroll progress eased toward the target (smooth on mouse wheels). Frames are fetched as compressed blobs coarse-to-fine (first, last, then every 16th, 8th...), six at a time, starting a screen before the section arrives; only frames near the playhead are decoded, so memory stays low on phones. Frame 1 is a real `<img>` poster (LCP, no-JS). Portrait frames on portrait screens, re-picked on rotation. Reduced motion and Save-Data load a single still.
+- All data is written with `textContent`; links only accept http(s), mailto, tel and #.
 
-## Project folder layout
+## Step 6: Where AI is allowed
+
+Copywriting drafts the developer approves, and denoising single stills. That's it. No AI people or cars on sequences (they morph frame to frame): use licensed 3D entourage or none. No sky replacement on renders: the sky has to match the lighting and reflections. Never for geometry, layouts, sizes, windows, finishes, views, or anything a buyer could rely on.
+
+## Step 7: Accuracy QA gate (all must pass before anyone outside sees it)
+
+1. **Plan overlay, measured:** the `plan` shot writes `metresPerPixel`. Register it to the architect's plan PDF on two known points and measure: openings within ±20 mm, overall within ±50 mm. Same for each elevation. Save the difference images to `qa/`.
+2. **Areas:** compute room areas from the model and reconcile against the unit schedule using the contract's measuring method (internal vs external, wall centrelines).
+3. **Finishes:** every visible material maps to the current schedule revision (the render stops on unmapped ones; check the mapping is right, not just present).
+4. **Cameras:** no interior FOV over 90°, eye height 1.6 m recorded, furniture at true product dimensions.
+5. **Sun and views:** date/time stated, north verified against the survey, views match the capture for that level and orientation.
+6. **Frames:** contact sheet of every 10th frame per shot (`ffmpeg -i %04d.webp -vf "select=not(mod(n\,10)),scale=320:-1,tile=6x" sheet.png`). Look for flicker, missing geometry, and what the mobile crop cuts off.
+7. **Site:** every hotspot opens the right unit, every number matches the schedule (generated, not hand-typed), disclaimer visible on every rendered scene, no console errors, phone and desktop checked.
+8. **Revision lock:** record the source file names, revisions and render date in `qa/manifest.json` (the render manifest already carries source, date, sun and engine). A newer drawing revision voids the sign-off.
+9. **Sign-off** from the architect and developer on the exact preview URL and commit, in writing, filed in `qa/`.
+
+The disclaimer must name the drawing and finishes revisions: "Artist's impression. Final design, finishes and views may vary. Rendered from drawing revision C, finishes schedule revision B."
+
+## Step 8: Hand over
+
+Private preview link first (Vercel or the client's host). Promo cut for social: screen-record the scroll, then follow the sound design steps in the repo's CLAUDE.md. Keep `shots.json`, `finishes.csv`, the `.blend` and `data/project.js` so the next drawing revision re-renders in hours.
+
+## Project folder
 
 ```
 <project>/
-  brief.md          intake checklist and what's missing
-  source/           IFC, PDFs, schedules (read only)
-  scene/            .blend, materials, camera paths
-  renders/          sequences per scene, desktop/ and mobile/
-  splats/           context and progress captures
-  site/             Vite app, units.json
-  qa/               overlays, sign-offs
+  brief.md        intake, missing, Assumed
+  source/         IFC, PDFs, schedules (read only)
+  work/           model.obj, scene.json, raw renders (not shipped)
+  finishes.csv
+  shots.json
+  site/           copy of template/; frames/ is written by blender_render.py
+  qa/             overlays, contact sheets, manifest.json, sign-offs
 ```
+
+## Not built yet (do by hand until then)
+
+Schedule CSV → `data/project.js` generator; automated overlay registration and deviation report; facade-point hotspots for apartment towers (today they project space centroids, which suits cutaway pickers; for a tower facade, anchor on a point on each unit's facade); bevel/triplanar for PDF-rebuilt models is manual; Gaussian splat and map/location sections; an enquiry form (the template links out).
