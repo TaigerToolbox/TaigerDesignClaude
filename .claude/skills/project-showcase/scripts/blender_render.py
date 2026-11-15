@@ -51,14 +51,121 @@ model = [o for o in sc.objects if o.type == "MESH"]
 meta = json.load(open(P(C["scene"])))
 
 # Finishes: every IFC material must be mapped. A missing row is an error, not a grey default.
+base_name = lambda n: re.sub(r"\.\d{3}$", "", n)  # strip only Blender's .001 suffix; ".EARTH" is a real name
 rows = {r["ifc_material"].strip(): r for r in csv.DictReader(open(P(C["finishes"]), encoding="utf-8-sig"))}
-used = {s.material.name.split(".")[0] for o in model for s in o.material_slots if s.material}
+used = {base_name(s.material.name) for o in model for s in o.material_slots if s.material}
 missing = sorted(used - set(rows))
 if missing and not C.get("allow_unmapped"):
     sys.exit("UNMAPPED MATERIALS (add them to %s): %s" % (C["finishes"], ", ".join(missing)))
 hidden_mats = set()
+_img_cache = {}
+
+
+def load_img(path, color=True):
+    key = (path, color)
+    if key not in _img_cache:
+        img = bpy.data.images.load(path, check_existing=True)
+        img.colorspace_settings.name = "sRGB" if color else "Non-Color"
+        _img_cache[key] = img
+    return _img_cache[key]
+
+
+def mean_rgb(img):
+    import numpy as np
+    px = np.empty(len(img.pixels), dtype=np.float32); img.pixels.foreach_get(px)
+    return px.reshape(-1, 4)[:, :3].mean(axis=0)  # linear, since Blender converts sRGB images on load
+
+
+def world_coords(nt, tile):
+    """IFC has no UVs: project textures from world position (metres), so a 1.2 m board stays 1.2 m."""
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1 / tile, 1 / tile, 1 / tile)
+    nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
+    return mp.outputs["Vector"]
+
+
+def textured(m, b, r):
+    """Grain from a texture photo, colour from the approved sample: tex * (sample / mean(tex))."""
+    nt = m.node_tree
+    vec = world_coords(nt, float(r.get("tile_m") or 1.0))
+    diff_path = P(r["texture"])
+    tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = load_img(diff_path)
+    tex.projection, tex.projection_blend = "BOX", 0.15
+    nt.links.new(vec, tex.inputs["Vector"])
+    target = hex_rgba(r["color"])[:3]
+    mean = mean_rgb(tex.image)
+    tint = nt.nodes.new("ShaderNodeVectorMath"); tint.operation = "MULTIPLY"
+    tint.inputs[1].default_value = tuple(t / max(mu, 1e-4) for t, mu in zip(target, mean))
+    nt.links.new(tex.outputs["Color"], tint.inputs[0])
+    nt.links.new(tint.outputs["Vector"], b.inputs["Base Color"])
+    for suffix, sock in (("Rough", "Roughness"), ("nor_gl", "Normal")):
+        p = diff_path.replace("Diffuse", suffix)
+        if p == diff_path or not os.path.exists(p):
+            continue
+        t2 = nt.nodes.new("ShaderNodeTexImage"); t2.image = load_img(p, color=False)
+        t2.projection, t2.projection_blend = "BOX", 0.15
+        nt.links.new(vec, t2.inputs["Vector"])
+        if sock == "Roughness":
+            k = nt.nodes.new("ShaderNodeMath"); k.operation = "MULTIPLY"
+            k.inputs[1].default_value = float(r.get("roughness") or 0.5) / 0.5  # CSV roughness scales the map around 0.5
+            nt.links.new(t2.outputs["Color"], k.inputs[0]); nt.links.new(k.outputs[0], b.inputs["Roughness"])
+        else:
+            nm = nt.nodes.new("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = float(r.get("normal_strength") or 0.6)
+            nt.links.new(t2.outputs["Color"], nm.inputs["Color"]); nt.links.new(nm.outputs["Normal"], b.inputs["Normal"])
+
+
+def marble(m, b, r):
+    """Procedural veined stone for slabs with no CC0 scan. color = base, vein = vein colour, tile_m = vein spacing."""
+    # Real veining is a cracked network, not stripes: Voronoi cell edges on a warped field give the
+    # crackle; a low-frequency cloud adds the soft tonal drift every slab has.
+    nt = m.node_tree
+    L = nt.links.new
+    vec = world_coords(nt, float(r.get("tile_m") or 0.6))
+    warp = nt.nodes.new("ShaderNodeTexNoise"); warp.inputs["Scale"].default_value = 0.9
+    warp.inputs["Detail"].default_value = 10; warp.inputs["Roughness"].default_value = 0.62
+    amt = nt.nodes.new("ShaderNodeVectorMath"); amt.operation = "SCALE"; amt.inputs["Scale"].default_value = 1.9  # strong warp: long meandering veins, no visible cells
+    L(warp.outputs["Color"], amt.inputs[0])
+    wv = nt.nodes.new("ShaderNodeVectorMath"); wv.operation = "ADD"; L(vec, wv.inputs[0]); L(amt.outputs["Vector"], wv.inputs[1])
+    base = hex_rgba(r["color"]); vein = hex_rgba(r.get("vein") or "#6b4a33")
+
+    def veins(scale, width):
+        vo = nt.nodes.new("ShaderNodeTexVoronoi"); vo.feature = "DISTANCE_TO_EDGE"
+        vo.inputs["Scale"].default_value = scale
+        L(wv.outputs["Vector"], vo.inputs["Vector"])
+        mr = nt.nodes.new("ShaderNodeMapRange")  # 1 on the edge, 0 a little away from it
+        mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = 0.0, width
+        mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = 1.0, 0.0
+        L(vo.outputs["Distance"], mr.inputs["Value"])
+        return mr.outputs["Result"]
+
+    big, fine = veins(0.55, 0.022), veins(2.2, 0.008)
+    # fine veins only in patches, as in a real slab
+    patch = nt.nodes.new("ShaderNodeTexNoise"); patch.inputs["Scale"].default_value = 1.1
+    L(wv.outputs["Vector"], patch.inputs["Vector"])
+    pm = nt.nodes.new("ShaderNodeMapRange")
+    pm.inputs["From Min"].default_value, pm.inputs["From Max"].default_value = 0.5, 0.65
+    L(patch.outputs["Fac"], pm.inputs["Value"])
+    fine_w = nt.nodes.new("ShaderNodeMath"); fine_w.operation = "MULTIPLY"
+    L(fine, fine_w.inputs[0]); L(pm.outputs["Result"], fine_w.inputs[1])
+    big_w = nt.nodes.new("ShaderNodeMath"); big_w.operation = "MULTIPLY"; big_w.inputs[1].default_value = 0.85
+    L(big, big_w.inputs[0]); big = big_w.outputs[0]
+    both = nt.nodes.new("ShaderNodeMath"); both.operation = "MAXIMUM"; both.use_clamp = True
+    L(big, both.inputs[0]); L(fine_w.outputs[0], both.inputs[1])
+    cloud = nt.nodes.new("ShaderNodeTexNoise"); cloud.inputs["Scale"].default_value = 0.6; cloud.inputs["Detail"].default_value = 3
+    L(vec, cloud.inputs["Vector"])
+    tone = nt.nodes.new("ShaderNodeMix"); tone.data_type = "RGBA"
+    tone.inputs["A"].default_value = base
+    tone.inputs["B"].default_value = tuple(c * 0.86 for c in base[:3]) + (1,)
+    L(cloud.outputs["Fac"], tone.inputs["Factor"])
+    out = nt.nodes.new("ShaderNodeMix"); out.data_type = "RGBA"
+    L(both.outputs[0], out.inputs["Factor"]); L(tone.outputs["Result"], out.inputs["A"])
+    out.inputs["B"].default_value = vein
+    L(out.outputs["Result"], b.inputs["Base Color"])
+
+
 for m in bpy.data.materials:
-    r = rows.get(m.name.split(".")[0])
+    r = rows.get(base_name(m.name))
     if not r:
         continue
     if r.get("hide", "").strip() in ("1", "yes", "true"):
@@ -72,6 +179,18 @@ for m in bpy.data.materials:
     tr = float(r.get("transmission") or 0)
     if tr:
         b.inputs["Transmission Weight"].default_value = tr
+        # Path tracers treat daylight through real glass as caustics and the room goes black.
+        # Camera rays see proper glass; every other ray passes straight through.
+        nt = m.node_tree
+        lp = nt.nodes.new("ShaderNodeLightPath"); tp = nt.nodes.new("ShaderNodeBsdfTransparent")
+        mx = nt.nodes.new("ShaderNodeMixShader"); out = nt.nodes.get("Material Output")
+        nt.links.new(lp.outputs["Is Camera Ray"], mx.inputs["Fac"])
+        nt.links.new(tp.outputs[0], mx.inputs[1]); nt.links.new(b.outputs[0], mx.inputs[2])
+        nt.links.new(mx.outputs[0], out.inputs["Surface"])
+    if (r.get("procedural") or "").strip() == "marble":
+        marble(m, b, r)
+    elif (r.get("texture") or "").strip():
+        textured(m, b, r)
 
 for o in model:
     if o.material_slots and all(s.material and s.material.name in hidden_mats for s in o.material_slots):
@@ -128,7 +247,18 @@ sc.collection.objects.link(sun)
 
 world = bpy.data.worlds.new("sky"); sc.world = world; world.use_nodes = True
 wn = world.node_tree.nodes
-try:
+if C.get("hdri"):
+    # A photographed sky lights interiors far better than a procedural one. Rotate it so its sun roughly
+    # agrees with the computed sun; record that it is a stand-in, not the site's real view.
+    env = wn.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(P(C["hdri"]))
+    mp = wn.new("ShaderNodeMapping"); tc = wn.new("ShaderNodeTexCoord")
+    mp.inputs["Rotation"].default_value = (0, 0, math.radians(C.get("hdri_rotation", 0)))
+    world.node_tree.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
+    world.node_tree.links.new(mp.outputs["Vector"], env.inputs["Vector"])
+    world.node_tree.links.new(env.outputs["Color"], wn["Background"].inputs[0])
+    wn["Background"].inputs[1].default_value = C.get("hdri_strength", 1.0)
+else:
+  try:
     sky = wn.new("ShaderNodeTexSky")
     for t in ("MULTIPLE_SCATTERING", "SINGLE_SCATTERING", "NISHITA"):  # names differ across Blender versions
         try:
@@ -139,12 +269,19 @@ try:
     sky.sun_elevation, sky.sun_rotation = math.radians(sun_el), math.radians(sun_az)
     world.node_tree.links.new(sky.outputs[0], wn["Background"].inputs[0])
     wn["Background"].inputs[1].default_value = 0.35
-except Exception as ex:
+  except Exception as ex:
     print("sky texture unavailable, using flat sky:", ex)
     wn["Background"].inputs[0].default_value = (0.55, 0.65, 0.8, 1)
 
 # ---------- colour and render settings
 sc.view_settings.view_transform = "AgX"
+sc.view_settings.exposure = C.get("exposure", 0.0)  # interiors lit through glass want +3 to +4.5
+if C.get("white_balance"):  # kelvin; ~5300 K keeps warm greige walls from reading grey under a blue sky
+    try:
+        sc.view_settings.use_white_balance = True
+        sc.view_settings.white_balance_temperature = C["white_balance"]
+    except AttributeError:
+        print("white balance needs Blender 4.3+, skipped")
 for look in ("AgX - Medium High Contrast", "Medium High Contrast", "None"):
     try:
         sc.view_settings.look = look; break
@@ -204,9 +341,17 @@ def keyframes(shot, aspect, n):
     cam.data.lens, cam.data.sensor_width, cam.data.shift_y = lens, 36, 0
     cam.data.sensor_fit = "AUTO"
     tgt = space(shot["target"]) if shot.get("target") else None
+    cm = shot.get("camera")
     for f in range(n):
         t = ease(f / max(1, n - 1))
-        if kind in ("orbit", "still"):
+        if cm:  # explicit camera, e.g. matching a reference render; pos2/look2 make it a move
+            pos = lerp(Vector(cm["pos"]), Vector(cm.get("pos2", cm["pos"])), t)
+            look = lerp(Vector(cm["look"]), Vector(cm.get("look2", cm["look"])), t)
+            if cm.get("level", True):
+                look.z = pos.z  # keep verticals vertical; frame with shift instead of tilt
+                cam.data.shift_y = cm.get("shift_y", 0)
+            yield pos, look
+        elif kind in ("orbit", "still"):
             az = shot.get("az", 215); az = lerp(az[0], az[1], t) if isinstance(az, list) else az
             d = fit_distance(radius, lens, aspect) * shot.get("zoom", 1.0)
             yield orbit_pos(center, az, shot.get("el", 18), d), center
@@ -237,9 +382,22 @@ def render_shot(shot):
             o.hide_render = True; hidden.append(o)
     scale = C.get("scale", 1.0)
     manifest = {}
-    variants = {"desktop": (1920, 1080), "mobile": (1080, 1920)}
+    prev_engine, prev_view = sc.render.engine, sc.view_settings.view_transform
+    if shot.get("style") == "clay":
+        # White model with outlines: the driving video for an AI pass. Clean edges are what the video
+        # model locks onto, and the same frames are the reference qa_drift.py checks the AI output against.
+        sc.render.engine = "BLENDER_WORKBENCH"
+        sh = sc.display.shading
+        sh.light, sh.color_type, sh.single_color = "STUDIO", "SINGLE", (0.92, 0.92, 0.92)
+        sh.show_cavity, sh.cavity_type = True, "BOTH"
+        sh.show_object_outline, sh.object_outline_color = True, (0.05, 0.05, 0.05)
+        sh.show_shadows = False
+        sc.view_settings.view_transform = "Standard"
+    variants = {"desktop": tuple(shot.get("size", (1920, 1080))), "mobile": (1080, 1920)}
+    variants = {k: v for k, v in variants.items() if k in shot.get("variants", variants)}
     for variant, (w, h) in variants.items():
-        sc.render.resolution_x, sc.render.resolution_y = int(w * scale), int(h * scale)
+        s_ = 1.0 if shot.get("size") and variant == "desktop" else scale  # an explicit size is exact
+        sc.render.resolution_x, sc.render.resolution_y = int(w * s_), int(h * s_)
         sc.render.resolution_percentage = 100
         aspect = w / h
         if shot["kind"] == "plan":
@@ -295,8 +453,15 @@ def render_shot(shot):
             kb = sum(os.path.getsize(os.path.join(dest, x)) for x in os.listdir(dest)) / 1024
             print("%s/%s: %d frames, %.0f KB total, %.0f KB/frame" % (shot["name"], variant, n, kb, kb / n))
             manifest[variant] = {"count": n, "w": sc.render.resolution_x, "h": sc.render.resolution_y}
+            if shot.get("video"):  # an MP4 of the same frames, e.g. the driving video for ai_pack.py
+                os.makedirs(P(os.path.join("work", "ai")), exist_ok=True)
+                mp4 = P(os.path.join("work", "ai", "%s_%s.mp4" % (shot["name"], variant)))
+                subprocess.run([FFMPEG, "-v", "error", "-y", "-framerate", str(shot.get("fps", 24)), "-i", os.path.join(tmp, "%04d.png"),
+                                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", mp4], check=True)
+                print("video:", mp4)
     for o in hidden:
         o.hide_render = False
+    sc.render.engine, sc.view_settings.view_transform = prev_engine, prev_view
     return manifest
 
 

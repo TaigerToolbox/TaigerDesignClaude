@@ -8,8 +8,8 @@ its IFC surface style (or IfcMaterial) name, so finishes map by name and QA can 
 to the model. Spaces and storeys are exported to scene.json (centroids, bounds) for cameras,
 cutaways and hotspots; they are not drawn.
 """
-import argparse, json, os, sys
-import ifcopenshell, ifcopenshell.geom, ifcopenshell.util.element as uel
+import argparse, json, os, re, sys
+import ifcopenshell, ifcopenshell.geom, ifcopenshell.util.unit, ifcopenshell.util.element as uel
 
 # Whitelist, not blacklist: services, footings, openings and annotation never sneak into a render.
 KEEP = (
@@ -22,11 +22,17 @@ KEEP = (
 
 def style_name(f, mat, element):
     """Readable name for a triangle's material: surface style name, else the element's IfcMaterial."""
-    inst = getattr(mat, "instance", None)
-    try:
-        ent = f.by_id(inst.id()) if inst is not None else None
-    except Exception:
-        ent = None
+    # mat.name looks like "IfcSurfaceStyleRendering-176". Resolve the id from it: touching mat.instance
+    # crashes the native library on some Revit exports.
+    ent, raw = None, getattr(mat, "name", "") or ""
+    mm = re.match(r"^Ifc\w+-(\d+)$", raw)
+    if mm:
+        try:
+            ent = f.by_id(int(mm.group(1)))
+        except Exception:
+            ent = None
+    elif raw:
+        return raw
     if ent is not None:
         if ent.is_a("IfcSurfaceStyle") and ent.Name:
             return ent.Name
@@ -46,28 +52,66 @@ def main():
     ap.add_argument("ifc")
     ap.add_argument("out")
     ap.add_argument("--classes", help="comma list to replace the default whitelist")
+    ap.add_argument("--storey", help="only elements contained in this storey (exact name)")
+    ap.add_argument("--around", help="regex on element name/type: keep only elements within --margin of the matches")
+    ap.add_argument("--margin", type=float, default=6.0, help="metres around --around matches (default 6)")
+    ap.add_argument("--target", action="append", default=[],
+                    help="NAME=REGEX, repeatable: a room for cameras/hotspots built from matching elements "
+                         "(for models exported without IfcSpace, common from Revit)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
 
     f = ifcopenshell.open(a.ifc)
+    unit = ifcopenshell.util.unit.calculate_unit_scale(f)  # storey elevations are in file units (often mm); geometry comes out in metres
     keep = a.classes.split(",") if a.classes else KEEP
     schema = ifcopenshell.ifcopenshell_wrapper.schema_by_name(f.schema_identifier)
     known = {d.name() for d in schema.declarations()}
     elements = [e for c in keep if c in known for e in f.by_type(c, include_subtypes=False)]  # IFC2x3/4/4.3 differ
     elements = list({e.id(): e for e in elements}.values())
+    if a.storey:  # comma list; an interior usually needs its own storey plus the one above (that slab is the ceiling)
+        on = set()
+        for name in a.storey.split(","):
+            st = [x for x in f.by_type("IfcBuildingStorey") if x.Name == name.strip()]
+            assert st, "storey %r not found; have %s" % (name, [x.Name for x in f.by_type("IfcBuildingStorey")])
+            on |= {e.id() for e in uel.get_decomposition(st[0])}
+        elements = [e for e in elements if e.id() in on]
 
     s = ifcopenshell.geom.settings()
     s.set("use-world-coords", True)
 
-    obj = open(os.path.join(a.out, "model.obj"), "w", encoding="utf-8")
-    obj.write("# from %s\n" % os.path.basename(a.ifc))
-    voff, skipped, written, mats = 1, [], 0, set()
+    label = lambda e: " ".join(x for x in (e.Name, getattr(e, "ObjectType", None)) if x)
+    skipped, shapes = [], {}
     for e in elements:
         try:
-            g = ifcopenshell.geom.create_shape(s, e).geometry
+            shapes[e.id()] = ifcopenshell.geom.create_shape(s, e)  # keep the shape: a bare .geometry dangles once it's freed (segfault)
         except Exception as ex:  # elements with no body geometry (e.g. an IfcSite without terrain)
             skipped.append("%s %s: %s" % (e.is_a(), e.GlobalId, str(ex)[:60]))
-            continue
+    elements = [e for e in elements if e.id() in shapes]
+
+    def bb(shape):
+        v = shape.geometry.verts
+        return [min(v[0::3]), min(v[1::3]), min(v[2::3]), max(v[0::3]), max(v[1::3]), max(v[2::3])]
+
+    def union(bs):
+        return [min(b[0] for b in bs), min(b[1] for b in bs), min(b[2] for b in bs),
+                max(b[3] for b in bs), max(b[4] for b in bs), max(b[5] for b in bs)]
+
+    box = None
+    if a.around:
+        rx = re.compile(a.around, re.I)
+        hits = [bb(shapes[e.id()]) for e in elements if rx.search(label(e))]
+        assert hits, "--around %r matched nothing" % a.around
+        u, m = union(hits), a.margin
+        box = [u[0] - m, u[1] - m, u[2] - 1, u[3] + m, u[4] + m, u[5] + 1.2]  # slab below to slab above
+        inside = lambda b: b[0] <= box[3] and b[3] >= box[0] and b[1] <= box[4] and b[4] >= box[1] and b[2] <= box[5] and b[5] >= box[2]
+        elements = [e for e in elements if inside(bb(shapes[e.id()]))]
+        print("around %r: %d matches, keeping %d elements" % (a.around, len(hits), len(elements)))
+
+    obj = open(os.path.join(a.out, "model.obj"), "w", encoding="utf-8")
+    obj.write("# from %s\n" % os.path.basename(a.ifc))
+    voff, written, mats = 1, 0, set()
+    for e in elements:
+        g = shapes[e.id()].geometry
         v, fc, mid = g.verts, g.faces, g.material_ids
         if not fc:
             continue
@@ -99,9 +143,17 @@ def main():
     spaces = []
     for sp in f.by_type("IfcSpace"):
         b = bounds(sp)
-        if b:
+        if b and (box is None or (b[0] <= box[3] and b[3] >= box[0] and b[1] <= box[4] and b[4] >= box[1])):
             spaces.append({"id": sp.GlobalId, "name": sp.LongName or sp.Name or sp.GlobalId, "bounds": b,
                            "centroid": [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]]})
+    for t in a.target:
+        name, rx = t.split("=", 1)
+        hits = [bb(shapes[e.id()]) for e in elements if re.search(rx, label(e), re.I)]
+        if not hits:
+            print("WARNING target %r matched nothing" % name)
+            continue
+        b = union(hits)
+        spaces.append({"id": "target:" + name, "name": name, "bounds": b, "centroid": [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]]})
 
     north = None
     for c in f.by_type("IfcGeometricRepresentationContext"):
@@ -117,7 +169,8 @@ def main():
         "source": os.path.basename(a.ifc),
         "schema": f.schema,
         "materials": sorted(mats),
-        "storeys": sorted([{"name": st.Name, "elevation": float(st.Elevation or 0)} for st in f.by_type("IfcBuildingStorey")], key=lambda x: x["elevation"]),
+        "storeys": sorted([{"name": st.Name, "elevation": float(st.Elevation or 0) * unit} for st in f.by_type("IfcBuildingStorey")], key=lambda x: x["elevation"]),
+        "bounds": box,
         "spaces": spaces,
         "trueNorth": north,
         "latLon": [dms(site[0].RefLatitude), dms(site[0].RefLongitude)] if site and site[0].RefLatitude else None,

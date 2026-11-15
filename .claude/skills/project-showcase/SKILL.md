@@ -18,10 +18,12 @@ The "building → cutaway → room" scroll experience, rendered from the project
 | `scripts/ifc_to_obj.py` | IFC → OBJ + `scene.json`. Class whitelist (no services/footings/openings), keeps `IfcClass|GlobalId|Name` per object and the IFC style name per face, exports spaces (bounds, centroids), storeys, true north, site lat/long. Normal Python: `pip install ifcopenshell`. |
 | `scripts/blender_render.py` | Builds the scene and renders every shot in `shots.json` for desktop (16:9) and mobile (9:16), encodes WebP, writes `site/frames/manifest.js` (frame counts, picker hotspots projected through the real camera, plan scale). Run with `blender -b --factory-startup -P blender_render.py -- shots.json`. |
 | `template/` | The site. Plain HTML/CSS/JS, no build. Content in `data/project.js`, render output in `frames/`. |
+| `scripts/ai_pack.py` | Optional AI polish: bundles a shot's clay driving video, accurate start/end renders and a prompt written from the finishes schedule, plus the approval and QA checklist. Calls no service. |
+| `scripts/qa_drift.py` | Checks AI output against the model's clay frames, edge for edge, whole frame and per grid cell. Exit 1 if any wall, opening or joinery line moved. Writes a JSON report and a review sheet (missing model lines in red). |
 
-`blender_render.py` already does: finishes from a CSV (stops on any unmapped IFC material), weld + 6 mm bevel on every edge (sharp IFC edges are the biggest CG tell), AgX colour, sun from real lat/long/date rotated to the model's true north, sky matched to the sun, fixed Cycles seed (no boiling noise between frames), eased camera moves, level eye-height interior cameras, roof-off cutaways by name pattern, an orthographic plan render with metres-per-pixel for QA, frame-count assertions and a size report.
+`blender_render.py` already does: finishes from a CSV (stops on any unmapped IFC material), real textures projected at true scale from world position (IFC has no UVs) and recoloured to the approved sample, procedural veined stone, weld + 6 mm bevel on every edge (sharp IFC edges are the biggest CG tell), AgX colour with an exposure setting, sun from real lat/long/date rotated to the model's true north, a matched procedural sky or an HDRI, glass that lets daylight through for lighting (interiors otherwise go black in a path tracer), fixed Cycles seed, eased camera moves, level eye-height cameras, explicit cameras for matching a reference shot, roof-off cutaways, an orthographic plan render with metres-per-pixel, clay/outline renders and MP4 output for AI driving videos, frame-count assertions and a size report.
 
-Shot kinds: `orbit` (hero, exterior), `cutaway` (roof off, descend into a target space), `room` (eye level 1.6 m, level camera, slow dolly across a space), `still` (picker image + hotspots), `plan` (QA ortho). Engine: `EEVEE` for drafts on a laptop, `CYCLES` for finals on a GPU box or render farm.
+Shot kinds: `orbit` (hero, exterior), `cutaway` (roof off, descend into a target space), `room` (eye level 1.6 m, level camera, slow dolly; `corner` 0 to 3 picks the start corner), `still` (picker image + hotspots), `plan` (QA ortho). Any shot can take `camera: {pos, look, pos2?, look2?}`, `size: [w, h]`, `variants: ["desktop"]`, `style: "clay"`, `video: true`. Engine: `EEVEE` for drafts on a laptop, `CYCLES` for finals.
 
 ## Step 0: Intake
 
@@ -39,13 +41,21 @@ Record what you have and what's missing in `brief.md`. Anything you had to assum
 
 **From IFC:** `python scripts/ifc_to_obj.py model.ifc work/`. Read the printed material list and `scene.json` `skipped` entries. Override the whitelist with `--classes` for unusual jobs (civil: `IfcCourse,IfcPavement,IfcKerb,IfcBearing,...`). Don't merge meshes before QA: per-element identity is how faces trace back to the model.
 
+**Big real-world models (tested on a 243 MB Revit IFC2x3 of a live apartment project):** don't convert the whole building for one room. `--storey "LEVEL 01,LEVEL 02"` (always include the storey above: its slab is the ceiling), `--around "<element name regex>" --margin 7` keeps only what's near the room. Revit often exports **no IfcSpace**, so rooms don't exist by name: build them with `--target "kitchen=Kitchen Island|PANTRY|RANGEHOOD"` (a camera/hotspot target from the bounds of matching elements). Revit material names usually carry the finish codes (`K-TIM-01`, `TBV-02`), so mapping to the schedule is direct. Conversion of that region took about a minute.
+
 **No IFC (most houses, extensions, fitouts):** rebuild in Blender from the drawings. Import each PDF page as a scaled underlay (calibrate from a long dimension string, not the printed scale). Model walls and openings **to the written dimensions**, never by tracing the PDF. Heights from the sections. SketchUp: import, then fix reversed faces, scale and material assignment. Name objects `Class|id|name` and materials by finish code so the rest of the pipeline is identical. Every dimension you had to infer goes in **Assumed**.
 
 **Interiors with no furniture in the model:** use an approved styling layer of real products (manufacturer models or a vetted library) in its own collection named `furniture`, captioned "furniture indicative, not included". QA can switch it off.
 
 ## Step 2: Materials
 
-`finishes.csv` columns: `ifc_material,color,roughness,metallic,transmission,hide`. One row per IFC material name the converter printed. `hide=1` for markers and virtual elements. Colours in sRGB hex from the supplier's published value or a calibrated photo of the sample. For finals, replace flat colours with scanned PBR textures at real-world scale: albedo in sRGB, roughness and normal maps as Non-Color, box/triplanar mapping (IFC has no UVs). Glass gets `transmission`. Australian context only: Colorbond colours by name, eucalypts not deciduous European trees, right-hand-drive cars.
+`finishes.csv` columns: `ifc_material,color,roughness,metallic,transmission,hide,texture,tile_m,normal_strength,procedural,vein,source`. One row per IFC material name the converter printed; the render stops and lists any it can't find. `hide=1` for markers and virtual elements. Write in `source` where each value came from (schedule code, sample, or ASSUMED); that column is the audit trail and feeds the AI prompt.
+
+- **Colour:** from a calibrated photo of the approved sample (grey card in frame, daylight). Approved-sample sign-off forms are usually office scans and run warm and saturated; use them only as a fallback and mark it.
+- **Texture:** `texture` = a CC0 scan's diffuse map (its `_Rough` and `_nor_gl` siblings are found automatically), `tile_m` = the real width that image covers (Poly Haven lists it; for boards, count them: 8 boards in 1.7 m, scaled for 190 mm boards = 1.52 m). The script keeps the scan's grain and shifts its average to your sample colour.
+- **Stone without a scan:** `procedural=marble`, `color` = ground, `vein` = vein colour, `tile_m` = vein scale. It reads as real stone at room scale; for close-ups of a named slab (e.g. Calacatta) get a scan or slab photo from the supplier.
+- **Slab soffits** export as concrete but are painted ceilings: map those concrete materials to the ceiling paint.
+- Glass gets `transmission=1`. Australian context only: Colorbond colours by name, eucalypts not deciduous European trees, right-hand-drive cars.
 
 ## Step 3: Scene library by project type
 
@@ -67,6 +77,7 @@ The template is a list of sections, so each project turns on only what it needs.
 - **Moves:** every move eased. 120 to 180 frames for a hero, 90 to 150 for a cutaway; phones get about 60% (the script does this). Frame count, not fps, decides scrub smoothness.
 - **Sun:** pick the date and time on purpose and record it (21 June, 3 pm shows honest winter shadows). True north from the survey, not the plan's arrow; `trueNorth` from the IFC is used when present.
 - **Window views:** camera-mapped backplates from the drone capture at that unit's GPS position and RL, exposure matched, capture date recorded. Model approved but unbuilt neighbours as massing so views aren't oversold.
+- **Interiors:** daylight only reaches the room through glass, so: `hdri` (a photographed sky lights far better than a procedural one; record it as a stand-in, not the real view), `exposure` +2 to +3 (how a photographer exposes an interior), and the script's light-passing glass. Match a reference shot with an explicit `camera`, iterate framing with EEVEE stills at 900 px (seconds each), then one Cycles final.
 - **Finals:** Cycles, enough samples that the fixed-seed denoiser is temporally stable. Scrub the sequence at 2x and look for flicker before encoding. Render at native size; don't AI-upscale sequences (it flickers and hallucinates detail).
 - **Encoding:** WebP quality 70 to 80 (the script uses 78). Budget: under ~120 KB per desktop frame and ~8 MB per mobile sequence. Check the size report the script prints.
 
@@ -82,7 +93,16 @@ Copy `template/` to `<project>/site/` and point `shots.json` `site` at it. Then 
 
 ## Step 6: Where AI is allowed
 
-Copywriting drafts the developer approves, and denoising single stills. That's it. No AI people or cars on sequences (they morph frame to frame): use licensed 3D entourage or none. No sky replacement on renders: the sky has to match the lighting and reflections. Never for geometry, layouts, sizes, windows, finishes, views, or anything a buyer could rely on.
+Copywriting drafts the developer approves, denoising single stills, and the optional polish pass below. No AI people or cars on sequences (they morph frame to frame): use licensed 3D entourage or none. No sky replacement on renders. Never for geometry, layouts, sizes, windows, finishes, views, or anything a buyer could rely on.
+
+**Optional AI polish (model-locked video).** When renders need more realism than the render budget allows, a video model with a driving video can add it without being allowed to redesign the room:
+
+1. Render the move twice from the same `shots.json` entry: once `style: "clay", video: true` (white model with outlines, the driving video and the QA reference) and the first and last frames as accurate Cycles stills (the finishes).
+2. `python scripts/ai_pack.py --driving ... --start ... --end ... --finishes finishes.csv --room "Kitchen" --materials "..." --out work/ai/kitchen`. The prompt names only scheduled finishes and forbids moving or adding anything; styling only if approved (`--styling`).
+3. Before generating: written OK from the developer and architect to send their design to an AI service, and the owner approves the quoted credit cost. Draft cheap, finish only the approved take.
+4. After generating: `python scripts/qa_drift.py <clay frames> <ai.mp4> --report qa/... --sheet qa/...` must pass. The reference is the clay render (geometry only), never a colour render (its shadows aren't geometry). Tested: a wall section moved 3 to 5% of frame width or an erased element fails in its grid cell while the whole-frame score still looked fine; a 1% shift passes as tolerance; a real colour render passes against its clay frames. Then check finishes against the start frame and scrub at 2x for morphing. Label it "Artist's impression, AI-enhanced from the design model".
+
+The difference from the "AI walkthrough" posts doing the rounds: they let the prompt choose the materials ("raw concrete, light pine"). Here the materials come from the schedule and the output is checked against the model, so it can be used on a real sale.
 
 ## Step 7: Accuracy QA gate (all must pass before anyone outside sees it)
 
@@ -93,8 +113,9 @@ Copywriting drafts the developer approves, and denoising single stills. That's i
 5. **Sun and views:** date/time stated, north verified against the survey, views match the capture for that level and orientation.
 6. **Frames:** contact sheet of every 10th frame per shot (`ffmpeg -i %04d.webp -vf "select=not(mod(n\,10)),scale=320:-1,tile=6x" sheet.png`). Look for flicker, missing geometry, and what the mobile crop cuts off.
 7. **Site:** every hotspot opens the right unit, every number matches the schedule (generated, not hand-typed), disclaimer visible on every rendered scene, no console errors, phone and desktop checked.
-8. **Revision lock:** record the source file names, revisions and render date in `qa/manifest.json` (the render manifest already carries source, date, sun and engine). A newer drawing revision voids the sign-off.
-9. **Sign-off** from the architect and developer on the exact preview URL and commit, in writing, filed in `qa/`.
+8. **AI-polished shots only:** `qa_drift.py` passed and its report and sheet are filed in `qa/`.
+9. **Revision lock:** record the source file names, revisions and render date in `qa/manifest.json` (the render manifest already carries source, date, sun and engine). A newer drawing revision voids the sign-off.
+10. **Sign-off** from the architect and developer on the exact preview URL and commit, in writing, filed in `qa/`.
 
 The disclaimer must name the drawing and finishes revisions: "Artist's impression. Final design, finishes and views may vary. Rendered from drawing revision C, finishes schedule revision B."
 
@@ -115,6 +136,17 @@ Private preview link first (Vercel or the client's host). Promo cut for social: 
   qa/             overlays, contact sheets, manifest.json, sign-offs
 ```
 
+## Benchmark: where this stands against a professional render
+
+Tested on a live apartment kitchen: same IFC, same camera, scheduled finishes, CPU-only Cycles (37 min, then 12 min at 1200 px). A blind art-director review scored the architect's own marketing render 8.5/10 for sign-off and ours 2/10, then 3/10 after the setup fixes now built in (exposure, white balance, lighter sample-corrected colours, low sun). Geometry, layout and finish placement matched; the gap is everything that makes a picture sell:
+
+1. **Styling assets (biggest gap, scored 1/10):** no props, curtains, tap detail or greenery. Needs an approved props library (vase and branches, fruit bowl, cookware, sheers, small appliances, one artwork) placed in its own `furniture` collection.
+2. **Real stone:** procedural marble reads as drawn at close range. Get the supplier's slab scan for any stone the camera gets near.
+3. **Light fill:** add area/portal lights in each window and light the dark uprights so nothing renders pure black; open blinds or swap to sheers.
+4. **Render budget:** finals on a GPU box or render farm; a laptop CPU is for framing and drafts.
+
+Until 1 and 2 exist, use renders for accuracy (cutaways, plans, layouts, finishes boards) and treat photoreal hero interiors as needing either those assets or the model-locked AI pass in step 6.
+
 ## Not built yet (do by hand until then)
 
-Schedule CSV → `data/project.js` generator; automated overlay registration and deviation report; facade-point hotspots for apartment towers (today they project space centroids, which suits cutaway pickers; for a tower facade, anchor on a point on each unit's facade); bevel/triplanar for PDF-rebuilt models is manual; Gaussian splat and map/location sections; an enquiry form (the template links out).
+Schedule CSV → `data/project.js` generator; automated overlay registration and deviation report; a finishes check for AI output (colour/pattern drift against the start frame; `qa_drift.py` checks geometry only); downlights/IES lighting from the lighting schedule; facade-point hotspots for apartment towers (today they project space centroids, which suits cutaway pickers; for a tower facade, anchor on a point on each unit's facade); bevel/triplanar for PDF-rebuilt models is manual; Gaussian splat and map/location sections; an enquiry form (the template links out).
