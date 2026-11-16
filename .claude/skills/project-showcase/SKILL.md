@@ -147,14 +147,22 @@ Private preview link first (Vercel or the client's host). Promo cut for social: 
 
 ## Benchmark: where this stands against a professional render
 
-Tested on a live apartment kitchen: same IFC, same camera, scheduled finishes, CPU-only Cycles (37 min, then 12 min at 1200 px). A blind art-director review scored the architect's own marketing render 8.5/10 for sign-off and ours 2/10, then 3/10 after the setup fixes now built in (exposure, white balance, lighter sample-corrected colours, low sun). Geometry, layout and finish placement matched; the gap is everything that makes a picture sell:
+Tested on a live apartment kitchen against the architect's own marketing render, same IFC, scheduled finishes, CPU-only Cycles at 1200 px, each scored blind by an art-director review (the pro render scored 8.5 to 9 every time):
 
-1. **Styling assets (biggest gap, scored 1/10):** no props, curtains, tap detail or greenery. Needs an approved props library (vase and branches, fruit bowl, cookware, sheers, small appliances, one artwork) placed in its own `furniture` collection.
-2. **Real stone:** procedural marble reads as drawn at close range. Get the supplier's slab scan for any stone the camera gets near.
-3. **Light fill:** add area/portal lights in each window and light the dark uprights so nothing renders pure black; open blinds or swap to sheers.
-4. **Render budget:** finals on a GPU box or render farm; a laptop CPU is for framing and drafts.
+| Pass | Score | What changed |
+|---|---|---|
+| 1 | 2/10 | first render |
+| 2 | 3/10 | exposure, white balance, lighter colours |
+| 3 | 3/10 | camera moved out of a wall and matched to the reference's direction, sRGB colour fix (real oak now), window portals and fills, CC0 props, taps from the model; 66 min |
+| 4 | 4.5/10 | sheers, a bolder veined stone scan, afternoon sun through the west glazing, ceiling-bounce fill; 18 min |
 
-Until 1 and 2 exist, use renders for accuracy (cutaways, plans, layouts, finishes boards) and treat photoreal hero interiors as needing either those assets or the model-locked AI pass in step 6.
+What the reviewer still marks down, and what fixes it:
+1. **Styling density and quality (4/10):** CC0 props are too few and too generic. Needs a curated paid kit (coffee station, vessel and board set, branch arrangement, art, matched stools) and a person placing it.
+2. **Composition (3/10):** camera too far back and too square-on. Iterate framing against the reference at GPU speed; a person decides.
+3. **Materials (5/10):** stone scale, joinery that reads as flat beige, a floor that tiles. Supplier slab photo, a long-plank floor scan, oak veneer scans for joinery.
+4. **Light (5/10):** better but the far side still goes grey. More GPU samples, practicals from the lighting schedule, a defined sun shaft.
+
+This matches the research (`docs/research/archviz-showcase-process.md`): automation gets to about 5 to 7; 8+ needs a GPU so iteration takes minutes, a paid styling kit, the supplier's slab photos, and a 1 to 2 hour art-direction pass per hero shot. Until then use renders for accuracy (cutaways, plans, layouts, finishes boards, scroll sequences) and treat photoreal hero stills as needing that pass, the model-locked AI polish in step 6, or an outsourced hero image.
 
 ## Not built yet (do by hand until then)
 
