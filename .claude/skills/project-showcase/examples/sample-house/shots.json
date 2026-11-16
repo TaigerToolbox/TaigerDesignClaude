@@ -1,0 +1,18 @@
+{
+  "model": "work/model.obj",
+  "scene": "work/scene.json",
+  "finishes": "finishes.csv",
+  "site": "site",
+  "location": {"lat": -27.47, "lon": 153.02, "utc": "2026-06-21T05:00"},
+  "engine": "EEVEE",
+  "samples": 32,
+  "scale": 0.5,
+  "ground": "#8b8a78",
+  "shots": [
+    {"name": "hero", "kind": "orbit", "frames": 120, "az": [195, 255], "el": 14, "zoom": 0.72},
+    {"name": "inside", "kind": "cutaway", "frames": 120, "target": "living room", "hide": ["roof"]},
+    {"name": "living", "kind": "room", "frames": 90, "target": "living room", "corner": 0},
+    {"name": "picker", "kind": "still", "az": 215, "el": 55, "zoom": 0.85, "hide": ["roof"]},
+    {"name": "qa_plan", "kind": "plan", "hide": ["roof"]}
+  ]
+}

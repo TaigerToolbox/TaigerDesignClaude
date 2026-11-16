@@ -1,0 +1,15 @@
+{
+ "model": "work/model.obj",
+ "scene": "work/scene.json",
+ "finishes": "finishes.csv",
+ "site": "site",
+ "location": {"lat": -27.47, "lon": 153.02, "utc": "2026-06-21T05:00"},
+ "engine": "CYCLES",
+ "samples": 256,
+ "noise_threshold": 0.01,
+ "ground": "#8b8a78",
+ "shots": [
+  {"name": "bench_still", "kind": "still", "variants": ["desktop"], "size": [1920, 1080], "az": 215, "el": 22, "zoom": 0.8},
+  {"name": "bench_seq", "kind": "room", "frames": 24, "variants": ["desktop"], "size": [960, 540], "target": "living room", "corner": 0}
+ ]
+}
