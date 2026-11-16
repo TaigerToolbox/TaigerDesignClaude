@@ -1,6 +1,20 @@
 (() => {
   "use strict";
   const P = window.PROJECT || {};
+  // Numbers buyers rely on come from the schedule (scripts/schedule_to_site.py), never typed into project.js.
+  const S = window.SCHEDULE || null;
+  if (S) {
+    const levels = new Set((S.units || []).map((u) => u.level)).size;
+    for (const sec of P.sections || []) {
+      if (sec.kind === "picker" && S.units?.length) sec.units = S.units;
+      if (sec.kind === "specs" && S.specs?.length) sec.items = S.specs;
+      if (sec.kind === "stats") for (const i of sec.items || []) {
+        if (i.source === "units" && S.units) i.value = String(S.units.length);
+        if (i.source === "levels" && S.units) i.value = String(levels);
+        if (i.source === "available" && S.units) i.value = String(S.units.filter((u) => /^available$/i.test(u.status || "")).length);
+      }
+    }
+  }
   const F = window.FRAMES || {};
   const $ = (s, r = document) => r.querySelector(s);
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));

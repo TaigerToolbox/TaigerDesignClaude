@@ -71,7 +71,7 @@ window.PROJECT = {
     },
     {
       id: "figures", kind: "stats",
-      items: [{ value: null, label: "Residences" }, { value: null, label: "Levels" }, { value: null, label: "Completion" }]
+      items: [{ value: null, source: "units", label: "Residences" }, { value: null, source: "levels", label: "Levels" }, { value: null, label: "Completion" }]
     },
     {
       id: "finishes", kind: "specs", nav: "Finishes",

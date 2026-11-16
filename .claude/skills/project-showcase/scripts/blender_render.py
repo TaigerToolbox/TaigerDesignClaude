@@ -618,6 +618,48 @@ def sheers(shot, campos):
     return made
 
 
+def section(shot, hidden):
+    """Dollhouse cut: everything above the plane goes, and whatever crosses it is sliced and capped in a
+    flat colour, the way a drawn section reads. "section": 1.2 cuts 1.2 m above the target space's floor
+    (or the model's lowest point); "section_z" is an absolute height. Returns meshes to restore."""
+    if shot.get("section") is None and shot.get("section_z") is None:
+        return []
+    if shot.get("section_z") is not None:
+        z = shot["section_z"]
+    else:
+        base = space(shot["target"])["bounds"][2] if shot.get("target") else lo.z
+        z = base + shot["section"]
+    cap = bpy.data.materials.get("section_cap") or bpy.data.materials.new("section_cap")
+    cap.use_nodes = True
+    cb = cap.node_tree.nodes.get("Principled BSDF")
+    cb.inputs["Base Color"].default_value = hex_rgba(shot.get("cap_color", "#2f2f2f")); cb.inputs["Roughness"].default_value = 0.9
+    swapped, cut = [], 0
+    for o in visible:
+        if o.hide_render:
+            continue
+        zs = [(o.matrix_world @ Vector(c)).z for c in o.bound_box]
+        if min(zs) >= z:
+            o.hide_render = o.hide_viewport = True; hidden.append(o)
+        elif max(zs) > z:
+            orig = o.data; me = orig.copy(); o.data = me; swapped.append((o, orig))
+            bm = bmesh.new(); bm.from_mesh(me)
+            mw = o.matrix_world; inv = mw.inverted()
+            co, no = inv @ Vector((0, 0, z)), (inv.to_3x3().transposed() @ Vector((0, 0, 1))).normalized()
+            res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=True)
+            edges = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
+            if edges:
+                filled = bmesh.ops.holes_fill(bm, edges=edges)["faces"]
+                if filled:
+                    if cap.name not in [m.name for m in me.materials if m]:
+                        me.materials.append(cap)
+                    idx = [m.name if m else "" for m in me.materials].index(cap.name)
+                    for f in filled:
+                        f.material_index = idx; f.smooth = False
+            bm.to_mesh(me); bm.free(); cut += 1
+    print("section at z=%.2f: %d objects cut and capped" % (z, cut))
+    return swapped
+
+
 def check_camera_clear(shot):
     """Stop if the camera sits inside a solid: those inside faces render as flat black slabs at the frame
     edges. Rays through the frame start at clip_start; hitting a back face means we see inside a solid."""
@@ -702,6 +744,7 @@ def render_shot(shot):
             o.hide_render = o.hide_viewport = True; hidden.append(o)  # viewport too, so ray checks agree
     cam.data.clip_start = shot.get("clip_start", 0.05)  # > 0.05: cut through a wall behind the camera
     lights = []
+    swapped = section(shot, hidden)
     scale = C.get("scale", 1.0)
     manifest = {}
     prev_engine, prev_view, prev_comp = sc.render.engine, sc.view_settings.view_transform, sc.render.use_compositing
@@ -790,6 +833,8 @@ def render_shot(shot):
                 subprocess.run([FFMPEG, "-v", "error", "-y", "-framerate", str(shot.get("fps", 24)), "-i", os.path.join(tmp, "%04d.png"),
                                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", mp4], check=True)
                 print("video:", mp4)
+    for o, orig in swapped:
+        me = o.data; o.data = orig; bpy.data.meshes.remove(me)
     for o in hidden:
         o.hide_render = o.hide_viewport = False
     for o in lights:

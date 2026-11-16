@@ -63,6 +63,31 @@ def edges(a, pct, floor=0.08):
     return mag > max(np.percentile(mag, pct), floor)
 
 
+def lab(path, size):
+    """CIELAB (D65) of an sRGB image, for finish colour checks."""
+    c = np.asarray(Image.open(path).convert("RGB").resize(size, Image.BILINEAR), dtype=np.float64) / 255.0
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = c @ np.array([[0.4124, 0.2126, 0.0193], [0.3576, 0.7152, 0.1192], [0.1805, 0.0722, 0.9505]])
+    xyz /= np.array([0.95047, 1.0, 1.08883])
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
+
+
+def finish_drift(start, take, size, G):
+    """Worst grid cell colour change between the accurate render and the AI take: (chroma, cell), max
+    lightness. Hue and chroma (a*, b*) must hold; lightness may move more, since a realism pass relights."""
+    A, B = lab(start, size), lab(take, size)
+    H, W = A.shape[:2]
+    worst, dl = (0.0, -1, -1), 0.0
+    for gy in range(G):
+        for gx in range(G):
+            sl = (slice(gy * H // G, (gy + 1) * H // G), slice(gx * W // G, (gx + 1) * W // G))
+            d = A[sl].reshape(-1, 3).mean(0) - B[sl].reshape(-1, 3).mean(0)
+            worst = max(worst, (float(np.hypot(d[1], d[2])), gx, gy))
+            dl = max(dl, float(abs(d[0])))
+    return worst, dl
+
+
 def dilate(e, r):
     p = np.pad(e, r)
     out = np.zeros_like(e)
@@ -82,6 +107,9 @@ def main():
     ap.add_argument("--min-recall", type=float, default=0.85, help="share of reference edges that must survive, whole frame")
     ap.add_argument("--min-cell", type=float, default=0.60, help="same, worst grid cell (catches one moved wall)")
     ap.add_argument("--grid", type=int, default=0, help="cells per side (default 4 for sequences, 8 for a single still)")
+    ap.add_argument("--finishes", help="the accurate colour render(s) the AI started from: also fail if a finish changed colour")
+    ap.add_argument("--max-chroma", type=float, default=8.0, help="max a*b* shift in any cell (about 8 = a clearly different finish)")
+    ap.add_argument("--max-lightness", type=float, default=25.0, help="max L* shift in any cell (relighting is allowed, repainting isn't)")
     ap.add_argument("--report"); ap.add_argument("--sheet")
     a = ap.parse_args()
 
@@ -117,13 +145,27 @@ def main():
             rows.append({"t": round(t, 3), "reference": os.path.basename(r_path), "ai": os.path.basename(a_path),
                          "recall": round(float(recall), 3), "worst_cell": round(float(cell[0]), 3), "cell_xy": cell[1:], "pass": bool(ok)})
             worst.append((cell[0], recall, a_path, re_, hit, cell))
+        if a.finishes:
+            fin = frames_from(a.finishes, tmp)
+            pairs = [(fin[0], ai[0])] if len(fin) == 1 else                 [(fin[round(k / max(1, a.samples - 1) * (len(fin) - 1))], ai[round(k / max(1, a.samples - 1) * (len(ai) - 1))]) for k in range(a.samples)]
+            for i, (fp, tp) in enumerate(pairs):
+                (dc, gx, gy), dl = finish_drift(fp, tp, size, G)
+                okf = dc <= a.max_chroma and dl <= a.max_lightness
+                rows[min(i, len(rows) - 1)].update({"finish_chroma": round(dc, 1), "finish_lightness": round(dl, 1), "finish_cell": [gx, gy]})
+                if not okf:
+                    rows[min(i, len(rows) - 1)]["pass"] = False
         failed = [r for r in rows if not r["pass"]]
         summary = {"pass": not failed, "frames_checked": len(rows), "failed": len(failed),
                    "min_recall": min(r["recall"] for r in rows), "min_cell": min(r["worst_cell"] for r in rows),
-                   "thresholds": {"radius_px_at_width": [a.radius, a.width], "min_recall": a.min_recall, "min_cell": a.min_cell, "grid": G}}
+                   "thresholds": {"radius_px_at_width": [a.radius, a.width], "min_recall": a.min_recall, "min_cell": a.min_cell, "grid": G,
+                                  **({"max_chroma": a.max_chroma, "max_lightness": a.max_lightness} if a.finishes else {})}}
+        if a.finishes:
+            summary["worst_finish_chroma"] = max(r.get("finish_chroma", 0) for r in rows)
+            summary["worst_finish_lightness"] = max(r.get("finish_lightness", 0) for r in rows)
         print(json.dumps(summary, indent=1))
         for r in failed:
-            print("FAIL t=%.2f recall %.2f, worst cell %.2f at grid %s (%s)" % (r["t"], r["recall"], r["worst_cell"], r["cell_xy"], r["ai"]))
+            print("FAIL t=%.2f recall %.2f, worst cell %.2f at grid %s (%s)%s" % (r["t"], r["recall"], r["worst_cell"], r["cell_xy"], r["ai"],
+                  ", finish shift chroma %s lightness %s at %s" % (r["finish_chroma"], r["finish_lightness"], r["finish_cell"]) if "finish_chroma" in r else ""))
         if a.report:
             os.makedirs(os.path.dirname(os.path.abspath(a.report)), exist_ok=True)
             json.dump({"summary": summary, "frames": rows}, open(a.report, "w"), indent=1)

@@ -83,8 +83,8 @@ Generate
 - Inputs: start.png as the image, prompt.txt as the instruction. Same aspect ratio as start.png.
 
 After generating (must pass before use)
-- [ ] `python qa_drift.py clay.png <ai output.png> --samples 1 --report qa/drift_{tag}.json --sheet qa/drift_{tag}.png`
-      Fails if any wall, opening, joinery line or appliance moved. Look at the sheet either way.
+- [ ] `python qa_drift.py clay.png <ai output.png> --samples 1 --finishes start.png --report qa/drift_{tag}.json --sheet qa/drift_{tag}.png`
+      Fails if any wall, opening, joinery line or appliance moved, or a finish changed colour. Look at the sheet either way.
 - [ ] Finishes still match start.png (floor, benchtop veining, joinery colour, tapware finish). Reject any take where they changed.
 - [ ] No invented objects beyond the approved props, no extra windows, no changed views.
 - [ ] Label the image "Artist's impression, AI-enhanced from the design model".
@@ -105,8 +105,8 @@ Generate
 - Inputs: {clip} -> driving video, start.png, end.png, prompt.txt. Same aspect ratio and length as the driving video.
 
 After generating (must pass before use)
-- [ ] `python qa_drift.py <clay frames folder or {clip}> <ai output.mp4> --report qa/drift_{a.room.replace(' ', '_')}.json --sheet qa/drift_{a.room.replace(' ', '_')}.png`
-      Fails if any wall, opening or joinery line moved. Look at the sheet either way.
+- [ ] `python qa_drift.py <clay frames folder or {clip}> <ai output.mp4> --finishes start.png --report qa/drift_{a.room.replace(' ', '_')}.json --sheet qa/drift_{a.room.replace(' ', '_')}.png`
+      Fails if any wall, opening or joinery line moved, or the first frame's finishes changed colour. Look at the sheet either way.
 - [ ] Finishes still match the start frame (floor, benchtop veining, joinery colour). Reject any take where they changed.
 - [ ] Scrub at 2x for morphing (tapware, handles, stone pattern crawling).
 - [ ] Label the scene "Artist's impression, AI-enhanced from the design model".
