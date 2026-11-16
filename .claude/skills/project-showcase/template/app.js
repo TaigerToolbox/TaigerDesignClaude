@@ -32,7 +32,9 @@
   document.title = T(P.name, "Project");
   $('meta[name="description"]')?.setAttribute("content", T(P.description, ""));
   document.querySelectorAll("[data-bind]").forEach((n) => (n.textContent = T(P[n.dataset.bind], "")));
-  const disclaimer = [P.disclaimer, P.sourceRevision].filter(Boolean).join(" ");
+  // The renderer records styling props in the manifest; the caption follows automatically.
+  const styled = (window.FRAMES || {})._meta?.styling === "indicative";
+  const disclaimer = [P.disclaimer, P.sourceRevision, styled && "Furniture and styling indicative, not included."].filter(Boolean).join(" ");
 
   // ---------- Frame sequences: fetched as small compressed blobs, decoded only near the current frame.
   // Two 180-frame 1080p sequences decoded up front are ~3 GB of bitmaps and get the tab killed on iPhone.

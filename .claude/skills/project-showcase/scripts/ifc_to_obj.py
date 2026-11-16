@@ -16,7 +16,9 @@ KEEP = (
     "IfcWall IfcWallStandardCase IfcCurtainWall IfcSlab IfcRoof IfcCovering IfcWindow IfcDoor "
     "IfcColumn IfcBeam IfcMember IfcPlate IfcStair IfcStairFlight IfcRamp IfcRampFlight IfcRailing "
     "IfcChimney IfcBuildingElementProxy IfcFurniture IfcFurnishingElement IfcSite IfcGeographicElement "
-    "IfcPavement IfcCourse IfcKerb IfcEarthworksFill IfcBearing IfcDeepFoundation"
+    "IfcPavement IfcCourse IfcKerb IfcEarthworksFill IfcBearing IfcDeepFoundation "
+    # taps, basins, downlights, appliances and blinds: without these a kitchen reads as an empty shell
+    "IfcFlowTerminal IfcSanitaryTerminal IfcLightFixture IfcElectricAppliance IfcShadingDevice"
 ).split()
 
 
@@ -75,6 +77,8 @@ def main():
             assert st, "storey %r not found; have %s" % (name, [x.Name for x in f.by_type("IfcBuildingStorey")])
             on |= {e.id() for e in uel.get_decomposition(st[0])}
         elements = [e for e in elements if e.id() in on]
+    else:
+        on = None
 
     s = ifcopenshell.geom.settings()
     s.set("use-world-coords", True)
@@ -107,6 +111,17 @@ def main():
         elements = [e for e in elements if inside(bb(shapes[e.id()]))]
         print("around %r: %d matches, keeping %d elements" % (a.around, len(hits), len(elements)))
 
+    # Georeferenced models (MGA northings ~5.8e6 m) lose ~0.5 m of precision in Blender's float32.
+    # Recentre near the origin and record the offset so anything measured can be put back.
+    allb = union([bb(shapes[e.id()]) for e in elements]) if elements else [0] * 6
+    off = [0.0, 0.0, 0.0]
+    if max(abs(x) for x in allb) > 10000:
+        off = [round(allb[0], -1), round(allb[1], -1), 0.0]
+        print("recentred by", off)
+    sh = lambda b: [b[0] - off[0], b[1] - off[1], b[2], b[3] - off[0], b[4] - off[1], b[5]]
+    if box:
+        box = sh(box)
+
     obj = open(os.path.join(a.out, "model.obj"), "w", encoding="utf-8")
     obj.write("# from %s\n" % os.path.basename(a.ifc))
     voff, written, mats = 1, 0, set()
@@ -118,7 +133,7 @@ def main():
         name = "%s|%s|%s" % (e.is_a(), e.GlobalId, (e.Name or "").replace(" ", "_"))
         obj.write("o %s\n" % name)
         for i in range(0, len(v), 3):
-            obj.write("v %.5f %.5f %.5f\n" % (v[i], v[i + 1], v[i + 2]))
+            obj.write("v %.5f %.5f %.5f\n" % (v[i] - off[0], v[i + 1] - off[1], v[i + 2]))
         names = [style_name(f, m, e) for m in g.materials] or ["unassigned"]
         cur = None
         for t in range(len(fc) // 3):
@@ -138,13 +153,16 @@ def main():
         except Exception:
             return None
         xs, ys, zs = v[0::3], v[1::3], v[2::3]
-        return [min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)]
+        return sh([min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)])
 
     spaces = []
     for sp in f.by_type("IfcSpace"):
+        if on is not None and sp.id() not in on:
+            continue
         b = bounds(sp)
         if b and (box is None or (b[0] <= box[3] and b[3] >= box[0] and b[1] <= box[4] and b[4] >= box[1])):
-            spaces.append({"id": sp.GlobalId, "name": sp.LongName or sp.Name or sp.GlobalId, "bounds": b,
+            st = uel.get_container(sp)
+            spaces.append({"id": sp.GlobalId, "name": sp.LongName or sp.Name or sp.GlobalId, "storey": st.Name if st else None, "bounds": b,
                            "centroid": [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]]})
     for t in a.target:
         name, rx = t.split("=", 1)
@@ -152,7 +170,7 @@ def main():
         if not hits:
             print("WARNING target %r matched nothing" % name)
             continue
-        b = union(hits)
+        b = sh(union(hits))
         spaces.append({"id": "target:" + name, "name": name, "bounds": b, "centroid": [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]]})
 
     north = None
@@ -171,6 +189,7 @@ def main():
         "materials": sorted(mats),
         "storeys": sorted([{"name": st.Name, "elevation": float(st.Elevation or 0) * unit} for st in f.by_type("IfcBuildingStorey")], key=lambda x: x["elevation"]),
         "bounds": box,
+        "offset": off,
         "spaces": spaces,
         "trueNorth": north,
         "latLon": [dms(site[0].RefLatitude), dms(site[0].RefLongitude)] if site and site[0].RefLatitude else None,

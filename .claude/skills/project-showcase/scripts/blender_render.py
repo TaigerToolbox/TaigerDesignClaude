@@ -70,98 +70,136 @@ def load_img(path, color=True):
     return _img_cache[key]
 
 
-def mean_rgb(img):
+def pixels(img):
     import numpy as np
     px = np.empty(len(img.pixels), dtype=np.float32); img.pixels.foreach_get(px)
-    return px.reshape(-1, 4)[:, :3].mean(axis=0)  # linear, since Blender converts sRGB images on load
+    return px.reshape(-1, 4)[:, :3]
 
 
-def world_coords(nt, tile):
-    """IFC has no UVs: project textures from world position (metres), so a 1.2 m board stays 1.2 m."""
+def mean_rgb(img):
+    import numpy as np
+    px = pixels(img)
+    if not img.is_float:  # measured: 8-bit images come back as raw sRGB values, not linear
+        px = np.where(px <= 0.04045, px / 12.92, ((px + 0.055) / 1.055) ** 2.4)
+    return px.mean(axis=0)
+
+
+def sibling(path, kind, explicit=""):
+    """The roughness/height map next to a diffuse scan. Poly Haven: _diff/_rough/_disp, older Poly Haven:
+    Diffuse/Rough, ambientCG: _Color/_Roughness/_Displacement. Only the file name is rewritten."""
+    if explicit:
+        return P(explicit)
+    d, f = os.path.split(path)
+    pairs = {"rough": (("_Color", "_Roughness"), ("Diffuse", "Rough"), ("_diff", "_rough")),
+             "height": (("_Color", "_Displacement"), ("Diffuse", "Displacement"), ("_diff", "_disp"))}[kind]
+    for a, b in pairs:
+        if a in f and os.path.exists(os.path.join(d, f.replace(a, b))):
+            return os.path.join(d, f.replace(a, b))
+    return None
+
+
+def world_coords(nt, tile, rotate_deg=0.0):
+    """IFC has no UVs: project textures from world position (metres), so a 1.2 m board stays 1.2 m.
+    rotate_deg turns the pattern in plan, e.g. floorboards running north-south."""
     geo = nt.nodes.new("ShaderNodeNewGeometry")
     mp = nt.nodes.new("ShaderNodeMapping")
     mp.inputs["Scale"].default_value = (1 / tile, 1 / tile, 1 / tile)
+    mp.inputs["Rotation"].default_value = (0, 0, math.radians(rotate_deg))
     nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
     return mp.outputs["Vector"]
 
 
 def textured(m, b, r):
     """Grain from a texture photo, colour from the approved sample: tex * (sample / mean(tex))."""
+    import numpy as np
     nt = m.node_tree
-    vec = world_coords(nt, float(r.get("tile_m") or 1.0))
+    L = nt.links.new
+    vec = world_coords(nt, float(r.get("tile_m") or 1.0), float(r.get("rotate_deg") or 0))
     diff_path = P(r["texture"])
-    tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = load_img(diff_path)
-    tex.projection, tex.projection_blend = "BOX", 0.15
-    nt.links.new(vec, tex.inputs["Vector"])
+
+    def img_node(path, color=True):
+        t = nt.nodes.new("ShaderNodeTexImage"); t.image = load_img(path, color)
+        t.projection, t.projection_blend = "BOX", 0.15
+        L(vec, t.inputs["Vector"])
+        return t
+
+    tex = img_node(diff_path)
     target = hex_rgba(r["color"])[:3]
     mean = mean_rgb(tex.image)
     tint = nt.nodes.new("ShaderNodeVectorMath"); tint.operation = "MULTIPLY"
-    tint.inputs[1].default_value = tuple(t / max(mu, 1e-4) for t, mu in zip(target, mean))
-    nt.links.new(tex.outputs["Color"], tint.inputs[0])
-    nt.links.new(tint.outputs["Vector"], b.inputs["Base Color"])
-    for suffix, sock in (("Rough", "Roughness"), ("nor_gl", "Normal")):
-        p = diff_path.replace("Diffuse", suffix)
-        if p == diff_path or not os.path.exists(p):
-            continue
-        t2 = nt.nodes.new("ShaderNodeTexImage"); t2.image = load_img(p, color=False)
-        t2.projection, t2.projection_blend = "BOX", 0.15
-        nt.links.new(vec, t2.inputs["Vector"])
-        if sock == "Roughness":
-            k = nt.nodes.new("ShaderNodeMath"); k.operation = "MULTIPLY"
-            k.inputs[1].default_value = float(r.get("roughness") or 0.5) / 0.5  # CSV roughness scales the map around 0.5
-            nt.links.new(t2.outputs["Color"], k.inputs[0]); nt.links.new(k.outputs[0], b.inputs["Roughness"])
-        else:
-            nm = nt.nodes.new("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = float(r.get("normal_strength") or 0.6)
-            nt.links.new(t2.outputs["Color"], nm.inputs["Color"]); nt.links.new(nm.outputs["Normal"], b.inputs["Normal"])
+    keep = (r.get("recolor") or "1").strip().lower() in ("0", "no", "false")  # a supplier slab photo is already the colour
+    tint.inputs[1].default_value = (1, 1, 1) if keep else tuple(t / max(mu, 1e-4) for t, mu in zip(target, mean))
+    L(tex.outputs["Color"], tint.inputs[0])
+    cap = nt.nodes.new("ShaderNodeVectorMath"); cap.operation = "MINIMUM"  # albedo over ~0.85 adds energy and fireflies
+    cap.inputs[1].default_value = (0.85, 0.85, 0.85)
+    L(tint.outputs["Vector"], cap.inputs[0]); L(cap.outputs["Vector"], b.inputs["Base Color"])
+    rough = float(r.get("roughness") or 0.5)
+    rp = sibling(diff_path, "rough", (r.get("roughness_map") or "").strip())
+    if rp:  # keep the map's variation, centred on the CSV value: its 5th..95th percentile maps to rough +/- 0.1
+        t2 = img_node(rp, color=False)
+        v = pixels(t2.image)[:, 0]
+        mr = nt.nodes.new("ShaderNodeMapRange")
+        mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = float(np.percentile(v, 5)), float(np.percentile(v, 95)) + 1e-3
+        mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = max(0.02, rough - 0.1), min(1.0, rough + 0.1)
+        L(t2.outputs["Color"], mr.inputs["Value"]); L(mr.outputs["Result"], b.inputs["Roughness"])
+    # Tangent-space normal maps need UVs, which IFC geometry doesn't have. Bump from the height map
+    # (or the diffuse's own luminance) works in world space.
+    hp = sibling(diff_path, "height", (r.get("bump_map") or "").strip())
+    src = img_node(hp, color=False) if hp else tex
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.4 * float(r.get("normal_strength") or 0.5)
+    bump.inputs["Distance"].default_value = 0.002
+    L(src.outputs["Color"], bump.inputs["Height"]); L(bump.outputs["Normal"], b.inputs["Normal"])
 
 
 def marble(m, b, r):
     """Procedural veined stone for slabs with no CC0 scan. color = base, vein = vein colour, tile_m = vein spacing."""
-    # Real veining is a cracked network, not stripes: Voronoi cell edges on a warped field give the
-    # crackle; a low-frequency cloud adds the soft tonal drift every slab has.
+    # Marble veins are long, meandering and mostly parallel (a closed Voronoi network reads as crazy
+    # paving): ridges of a heavily distorted wave, a finer set at another angle only in patches, the vein
+    # colour broken up, and a low-frequency cloud for the tonal drift every slab has.
     nt = m.node_tree
     L = nt.links.new
-    vec = world_coords(nt, float(r.get("tile_m") or 0.6))
-    warp = nt.nodes.new("ShaderNodeTexNoise"); warp.inputs["Scale"].default_value = 0.9
-    warp.inputs["Detail"].default_value = 10; warp.inputs["Roughness"].default_value = 0.62
-    amt = nt.nodes.new("ShaderNodeVectorMath"); amt.operation = "SCALE"; amt.inputs["Scale"].default_value = 1.9  # strong warp: long meandering veins, no visible cells
-    L(warp.outputs["Color"], amt.inputs[0])
-    wv = nt.nodes.new("ShaderNodeVectorMath"); wv.operation = "ADD"; L(vec, wv.inputs[0]); L(amt.outputs["Vector"], wv.inputs[1])
+    vec = world_coords(nt, float(r.get("tile_m") or 0.6), float(r.get("rotate_deg") or 0))
     base = hex_rgba(r["color"]); vein = hex_rgba(r.get("vein") or "#6b4a33")
 
-    def veins(scale, width):
-        vo = nt.nodes.new("ShaderNodeTexVoronoi"); vo.feature = "DISTANCE_TO_EDGE"
-        vo.inputs["Scale"].default_value = scale
-        L(wv.outputs["Vector"], vo.inputs["Vector"])
-        mr = nt.nodes.new("ShaderNodeMapRange")  # 1 on the edge, 0 a little away from it
-        mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = 0.0, width
-        mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = 1.0, 0.0
-        L(vo.outputs["Distance"], mr.inputs["Value"])
-        return mr.outputs["Result"]
+    def node(kind, **inp):
+        n = nt.nodes.new(kind)
+        for k, v in inp.items():
+            n.inputs[k].default_value = v
+        return n
 
-    big, fine = veins(0.55, 0.022), veins(2.2, 0.008)
-    # fine veins only in patches, as in a real slab
-    patch = nt.nodes.new("ShaderNodeTexNoise"); patch.inputs["Scale"].default_value = 1.1
-    L(wv.outputs["Vector"], patch.inputs["Vector"])
-    pm = nt.nodes.new("ShaderNodeMapRange")
-    pm.inputs["From Min"].default_value, pm.inputs["From Max"].default_value = 0.5, 0.65
-    L(patch.outputs["Fac"], pm.inputs["Value"])
-    fine_w = nt.nodes.new("ShaderNodeMath"); fine_w.operation = "MULTIPLY"
-    L(fine, fine_w.inputs[0]); L(pm.outputs["Result"], fine_w.inputs[1])
-    big_w = nt.nodes.new("ShaderNodeMath"); big_w.operation = "MULTIPLY"; big_w.inputs[1].default_value = 0.85
-    L(big, big_w.inputs[0]); big = big_w.outputs[0]
-    both = nt.nodes.new("ShaderNodeMath"); both.operation = "MAXIMUM"; both.use_clamp = True
-    L(big, both.inputs[0]); L(fine_w.outputs[0], both.inputs[1])
-    cloud = nt.nodes.new("ShaderNodeTexNoise"); cloud.inputs["Scale"].default_value = 0.6; cloud.inputs["Detail"].default_value = 3
-    L(vec, cloud.inputs["Vector"])
-    tone = nt.nodes.new("ShaderNodeMix"); tone.data_type = "RGBA"
+    def ridge(scale, direction, lo):
+        w = node("ShaderNodeTexWave", Scale=scale, Distortion=10.0, Detail=8.0)
+        w.wave_type, w.bands_direction = "BANDS", direction
+        w.inputs["Detail Roughness"].default_value = 0.7
+        L(vec, w.inputs["Vector"])
+        mr = node("ShaderNodeMapRange", **{"From Min": lo, "From Max": 1.0})  # only the crest of each band
+        L(w.outputs["Fac"], mr.inputs["Value"])
+        pw = node("ShaderNodeMath"); pw.operation = "POWER"; pw.inputs[1].default_value = 2.5
+        L(mr.outputs["Result"], pw.inputs[0])
+        return pw.outputs[0]
+
+    big, fine = ridge(0.4, "DIAGONAL", 0.9), ridge(1.6, "Y", 0.95)
+    patch = node("ShaderNodeTexNoise", Scale=1.1, Detail=4.0); L(vec, patch.inputs["Vector"])
+    pm = node("ShaderNodeMapRange", **{"From Min": 0.55, "From Max": 0.65}); L(patch.outputs["Fac"], pm.inputs["Value"])
+    fw = node("ShaderNodeMath"); fw.operation = "MULTIPLY"; L(fine, fw.inputs[0]); L(pm.outputs["Result"], fw.inputs[1])
+    both = node("ShaderNodeMath"); both.operation = "MAXIMUM"; both.use_clamp = True
+    L(big, both.inputs[0]); L(fw.outputs[0], both.inputs[1])
+    cloud = node("ShaderNodeTexNoise", Scale=0.6, Detail=3.0); L(vec, cloud.inputs["Vector"])
+    tone = node("ShaderNodeMix"); tone.data_type = "RGBA"
     tone.inputs["A"].default_value = base
-    tone.inputs["B"].default_value = tuple(c * 0.86 for c in base[:3]) + (1,)
+    tone.inputs["B"].default_value = tuple(c * 0.88 for c in base[:3]) + (1,)
     L(cloud.outputs["Fac"], tone.inputs["Factor"])
-    out = nt.nodes.new("ShaderNodeMix"); out.data_type = "RGBA"
-    L(both.outputs[0], out.inputs["Factor"]); L(tone.outputs["Result"], out.inputs["A"])
-    out.inputs["B"].default_value = vein
+    vtone = node("ShaderNodeMix"); vtone.data_type = "RGBA"  # veins fade in and out along their length
+    vtone.inputs["A"].default_value = vein
+    vtone.inputs["B"].default_value = tuple(lerp(v, c, 0.6) for v, c in zip(vein[:3], base[:3])) + (1,)
+    L(patch.outputs["Fac"], vtone.inputs["Factor"])
+    out = node("ShaderNodeMix"); out.data_type = "RGBA"
+    L(both.outputs[0], out.inputs["Factor"]); L(tone.outputs["Result"], out.inputs["A"]); L(vtone.outputs["Result"], out.inputs["B"])
     L(out.outputs["Result"], b.inputs["Base Color"])
+    rough = float(r.get("roughness") or 0.35)  # honed stone isn't uniformly matte
+    rr = node("ShaderNodeMapRange", **{"To Min": max(0.05, rough - 0.07), "To Max": rough + 0.07})
+    L(cloud.outputs["Fac"], rr.inputs["Value"]); L(rr.outputs["Result"], b.inputs["Roughness"])
 
 
 for m in bpy.data.materials:
@@ -191,24 +229,98 @@ for m in bpy.data.materials:
         marble(m, b, r)
     elif (r.get("texture") or "").strip():
         textured(m, b, r)
+    if C.get("imperfection", True) and not tr and not b.inputs["Roughness"].is_linked:
+        # A flawless surface reads as CG. Faint roughness drift (smudges, wear), never a colour change.
+        nt = m.node_tree
+        nz = nt.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 3.0; nz.inputs["Detail"].default_value = 6.0
+        nt.links.new(world_coords(nt, 1.0), nz.inputs["Vector"])
+        rv = float(r.get("roughness") or 0.6)
+        mr = nt.nodes.new("ShaderNodeMapRange")
+        mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = max(0.02, rv - 0.06), min(1.0, rv + 0.06)
+        nt.links.new(nz.outputs["Fac"], mr.inputs["Value"]); nt.links.new(mr.outputs["Result"], b.inputs["Roughness"])
 
+glass_objs = []
 for o in model:
-    if o.material_slots and all(s.material and s.material.name in hidden_mats for s in o.material_slots):
-        o.hide_render = True  # markers, virtual elements
-    # IFC edges are razor sharp, the biggest CG tell. Weld, then a small bevel catches light like real arrises.
+    slot_mats = [s.material.name if s.material else "" for s in o.material_slots]
     bm = bmesh.new(); bm.from_mesh(o.data)
+    # markers and virtual elements: drop their faces, so a mixed object keeps only what's real
+    gone = [f for f in bm.faces if f.material_index < len(slot_mats) and slot_mats[f.material_index] in hidden_mats]
+    if gone:
+        bmesh.ops.delete(bm, geom=gone, context="FACES")
+    # IFC edges are razor sharp, the biggest CG tell. Weld, then a small bevel catches light like real arrises.
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0005)
     bm.to_mesh(o.data); bm.free()
-    bv = o.modifiers.new("arris", "BEVEL")
-    bv.width, bv.segments, bv.limit_method, bv.angle_limit = 0.006, 2, "ANGLE", math.radians(30)
-    bv.harden_normals = True
+    if not o.data.polygons:
+        o.hide_render = o.hide_viewport = True
+        continue
+    if any(float((rows.get(base_name(n)) or {}).get("transmission") or 0) > 0 for n in slot_mats):
+        glass_objs.append(o)
+    dims = sorted(o.dimensions)
+    if dims[0] > 0.03:  # a 3 mm bevel would eat blind slats, glass and thin trims
+        bv = o.modifiers.new("arris", "BEVEL")
+        bv.width, bv.segments, bv.limit_method, bv.angle_limit = 0.003, 2, "ANGLE", math.radians(30)
+        bv.harden_normals = True
     o.data.shade_smooth()
+    try:
+        o.data.set_sharp_from_angle(angle=math.radians(30))  # smooth curves, crisp corners
+    except AttributeError:
+        pass
 
 visible = [o for o in model if not o.hide_render]
 pts = [o.matrix_world @ Vector(c) for o in visible for c in o.bound_box]
 lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
 hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
 center, radius = (lo + hi) / 2, (hi - lo).length / 2
+
+
+def place_props():
+    """Approved styling in its own 'furniture' collection: real-scale CC0 or manufacturer models.
+    Each prop: {"asset": "x.gltf", "on": "<object name regex>", "uv": [0.3, 0.6]} sits it on the top of the
+    matching objects at that fraction of their plan extent; or "pos": [x, y, z]. Optional "yaw" (deg),
+    "scale", "height" (m: rescale to it). Real heights are printed for the QA record."""
+    if not C.get("props"):
+        return
+    col = bpy.data.collections.new("furniture"); sc.collection.children.link(col)
+    for i, p in enumerate(C["props"]):
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=P(p["asset"]))
+        new = [o for o in bpy.data.objects if o not in before]
+        assert new, "prop %s imported nothing" % p["asset"]
+        for o in new:
+            for c in list(o.users_collection):
+                c.objects.unlink(o)
+            col.objects.link(o)
+        bpy.context.view_layer.update()
+        pts_ = [o.matrix_world @ Vector(c) for o in new if o.type == "MESH" for c in o.bound_box]
+        plo = Vector((min(q.x for q in pts_), min(q.y for q in pts_), min(q.z for q in pts_)))
+        phi = Vector((max(q.x for q in pts_), max(q.y for q in pts_), max(q.z for q in pts_)))
+        foot = Vector(((plo.x + phi.x) / 2, (plo.y + phi.y) / 2, plo.z))
+        piv = bpy.data.objects.new("prop|%d|%s" % (i, os.path.splitext(os.path.basename(p["asset"]))[0]), None)
+        col.objects.link(piv)
+        for o in new:
+            if o.parent not in new:
+                o.location -= foot; o.parent = piv
+        s = p.get("scale", 1.0)
+        if p.get("height"):
+            s = p["height"] / max(phi.z - plo.z, 1e-4)
+        if p.get("pos"):
+            at = Vector(p["pos"])
+        else:
+            rx = re.compile(p["on"], re.I)
+            hosts = [o for o in model if rx.search(o.name) and not o.hide_render]
+            assert hosts, "prop %s: 'on' %r matched no object" % (p["asset"], p["on"])
+            vs = [o.matrix_world @ v.co for o in hosts for v in o.data.vertices]
+            x0, x1 = min(v.x for v in vs), max(v.x for v in vs)
+            y0, y1 = min(v.y for v in vs), max(v.y for v in vs)
+            u, v_ = p.get("uv", [0.5, 0.5])
+            # "z": the benchtop height when the host also holds taller parts (a rangehood, a shelf)
+            at = Vector((lerp(x0, x1, u), lerp(y0, y1, v_), p.get("z", max(v.z for v in vs)) + 0.0005))
+        piv.location, piv.scale = at, (s, s, s)
+        piv.rotation_euler = (0, 0, math.radians(p.get("yaw", 0)))
+        print("prop %s: %.2f m tall at (%.2f, %.2f, %.2f)" % (piv.name, (phi.z - plo.z) * s, at.x, at.y, at.z))
+
+
+place_props()
 
 # Ground
 bpy.ops.mesh.primitive_plane_add(size=max(400, radius * 40), location=(center.x, center.y, lo.z - 0.01))
@@ -241,7 +353,8 @@ loc = C["location"]
 to_sun, sun_el, sun_az = sun_vector(loc["lat"], loc["lon"], loc["utc"])
 assert sun_el > 0, "sun is below the horizon at %s, pick a daytime UTC" % loc["utc"]
 sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
-sun.data.energy, sun.data.angle = 4.0, math.radians(0.53)
+sun.data.energy, sun.data.angle = C.get("sun_strength", 4.0), math.radians(0.53)  # ~1.5 for soft interiors
+print("sun: elevation %.1f, azimuth %.1f (rotate an HDRI so its sun agrees, or it casts a second shadow)" % (sun_el, sun_az))
 sun.rotation_euler = to_sun.to_track_quat("Z", "Y").to_euler()
 sc.collection.objects.link(sun)
 
@@ -275,23 +388,56 @@ else:
 
 # ---------- colour and render settings
 sc.view_settings.view_transform = "AgX"
-sc.view_settings.exposure = C.get("exposure", 0.0)  # interiors lit through glass want +3 to +4.5
+sc.view_settings.exposure = C.get("exposure", 0.0)  # interiors with window lights: +1.5 to +2.5 (benchmarked)
 if C.get("white_balance"):  # kelvin; ~5300 K keeps warm greige walls from reading grey under a blue sky
     try:
         sc.view_settings.use_white_balance = True
         sc.view_settings.white_balance_temperature = C["white_balance"]
     except AttributeError:
         print("white balance needs Blender 4.3+, skipped")
-for look in ("AgX - Medium High Contrast", "Medium High Contrast", "None"):
+# Base contrast by default: interiors already starve the shadows, a punchier look crushes them to black.
+for look in (C.get("look", "AgX - Base Contrast"), "AgX - Base Contrast", "Base Contrast", "None"):
     try:
         sc.view_settings.look = look; break
     except TypeError:
         pass
 engine = C.get("engine", "EEVEE").upper()
+
+
+def setall(obj, **kw):
+    for k, v in kw.items():
+        try:
+            setattr(obj, k, v)
+        except (AttributeError, TypeError) as ex:
+            print("setting %s skipped: %s" % (k, ex))
+
+
 if engine == "CYCLES":
     sc.render.engine = "CYCLES"
-    sc.cycles.samples = C.get("samples", 256)
-    sc.cycles.use_denoising, sc.cycles.seed, sc.cycles.use_animated_seed = True, 0, False  # fixed seed: no boiling noise
+    cy = sc.cycles
+    setall(cy, samples=C.get("samples", 384), use_adaptive_sampling=True, adaptive_threshold=C.get("noise_threshold", 0.03),
+           adaptive_min_samples=32, use_denoising=True, denoiser="OPENIMAGEDENOISE",
+           denoising_input_passes="RGB_ALBEDO_NORMAL", denoising_prefilter="ACCURATE",
+           seed=0, use_animated_seed=False,  # fixed seed: no boiling noise between frames
+           max_bounces=16, diffuse_bounces=6, glossy_bounces=3, transmission_bounces=4, transparent_max_bounces=16,
+           caustics_reflective=False, caustics_refractive=False, blur_glossy=1.0,
+           sample_clamp_indirect=C.get("clamp_indirect", 5.0), use_light_tree=True)
+    sc.render.use_persistent_data = True  # sequences: don't rebuild the scene every frame
+    if C.get("device", "CPU").upper() == "GPU":  # finals on a rented RTX box: same command, ~10x faster
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+        for backend in ("OPTIX", "CUDA", "HIP", "METAL", "ONEAPI"):
+            try:
+                prefs.compute_device_type = backend
+                prefs.get_devices()
+                if any(d.type == backend for d in prefs.devices):
+                    break
+            except TypeError:
+                continue
+        for d in prefs.devices:
+            d.use = d.type != "CPU"
+        assert any(d.use for d in prefs.devices), "device GPU requested but no GPU found"
+        cy.device = "GPU"
+        print("GPU render:", prefs.compute_device_type, [d.name for d in prefs.devices if d.use])
 else:
     for e in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"):
         try:
@@ -304,6 +450,44 @@ else:
         except AttributeError:
             pass
 sc.render.image_settings.file_format = "PNG"
+
+
+def apply_post():
+    """One saved grade for every frame, so sequences stay flicker-free: soft bloom on highlights and a
+    faint vignette. "post": {"glare": 0.15, "vignette": 0.15} or false. Never sky replacement or retouching."""
+    pc = C.get("post", {})
+    if pc is False:
+        return
+    try:
+        t = bpy.data.node_groups.new("post", "CompositorNodeTree")
+        t.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+        N, L = t.nodes.new, t.links.new
+        rl = N("CompositorNodeRLayers")
+        gl = N("CompositorNodeGlare")
+        for k, v in (("Type", "Bloom"), ("Threshold", 1.0), ("Strength", pc.get("glare", 0.15))):
+            try:
+                gl.inputs[k].default_value = v
+            except (KeyError, TypeError):
+                pass
+        L(rl.outputs["Image"], gl.inputs["Image"])
+        em = N("CompositorNodeEllipseMask")
+        em.inputs["Size"].default_value = (0.95, 0.95)
+        bl = N("CompositorNodeBlur"); bl.inputs["Size"].default_value = (300, 300)
+        L(em.outputs["Mask"], bl.inputs["Image"])
+        vg = N("ShaderNodeMix"); vg.data_type = "RGBA"; vg.blend_type = "MULTIPLY"
+        vg.inputs["Factor"].default_value = pc.get("vignette", 0.15)
+        inv = N("ShaderNodeMix"); inv.data_type = "RGBA"  # mask 1 in the centre -> white, edges -> dark
+        inv.inputs["A"].default_value = (0.0, 0.0, 0.0, 1); inv.inputs["B"].default_value = (1, 1, 1, 1)
+        L(bl.outputs["Image"], inv.inputs["Factor"])
+        L(gl.outputs["Image"], vg.inputs["A"]); L(inv.outputs["Result"], vg.inputs["B"])
+        out = N("NodeGroupOutput"); L(vg.outputs["Result"], out.inputs[0])
+        sc.compositing_node_group = t
+        sc.render.use_compositing = True
+    except Exception as ex:
+        print("post grade skipped (compositor API differs in this Blender):", ex)
+
+
+apply_post()
 sc.render.film_transparent = False
 
 cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
@@ -311,10 +495,146 @@ sc.collection.objects.link(cam); sc.camera = cam
 
 
 def space(name):
-    for s in meta["spaces"]:
-        if s["name"].lower() == str(name).lower():
-            return s
+    """By id, by name, or "name@storey" (every unit has a "Bedroom")."""
+    want = str(name).lower()
+    hits = [s for s in meta["spaces"] if want in (str(s.get("id", "")).lower(), s["name"].lower(),
+                                                  ("%s@%s" % (s["name"], s.get("storey"))).lower())]
+    if len(hits) > 1:
+        sys.exit("target '%s' is ambiguous (%d spaces): use its id or name@storey" % (name, len(hits)))
+    if hits:
+        return hits[0]
     sys.exit("target space '%s' not in scene.json (have: %s)" % (name, [s["name"] for s in meta["spaces"]]))
+
+
+def kelvin_rgb(k):
+    """Blackbody colour, Tanner Helland's fit; good enough for light tints."""
+    t = k / 100
+    r = 1.0 if t <= 66 else min(1, 1.2930 * (t - 60) ** -0.1332)
+    g = min(1, 0.3901 * math.log(t) - 0.6318) if t <= 66 else min(1, 1.1299 * (t - 60) ** -0.0755)
+    b = 1.0 if t >= 66 else (0.0 if t <= 19 else min(1, 0.5432 * math.log(t - 10) - 1.1962))
+    return (r, g, b)
+
+
+def area_light(name, size, loc, facing, watts, kelvin, camera_visible=False, portal=False):
+    """Rectangular area light at loc pointing along `facing`."""
+    ld = bpy.data.lights.new(name, "AREA")
+    ld.shape, ld.size, ld.size_y = "RECTANGLE", max(size[0], 0.05), max(size[1], 0.05)
+    ld.energy, ld.color = watts, kelvin_rgb(kelvin)
+    if portal:
+        try:
+            ld.cycles.is_portal = True
+        except AttributeError:
+            print("portals unavailable in this Blender")
+    ob = bpy.data.objects.new(name, ld); sc.collection.objects.link(ob)
+    ob.location = loc
+    ob.rotation_euler = (-facing).to_track_quat("Z", "Y").to_euler()  # a light shines along its -Z
+    ob.visible_camera = camera_visible
+    return ob
+
+
+def window_lights(campos, camdir, shot):
+    """Interiors lit through glass on a CPU budget: a portal (guides sky samples, 3 to 5x less noise)
+    and a soft fill at every glazed opening near the camera, plus a fill behind the camera the way a
+    photographer bounces light. Fills are invisible to the camera but show in reflections."""
+    made = []
+    wl = {**C.get("window_lights", {}), **shot.get("window_lights", {})}
+    for o in glass_objs:
+        if o.hide_render:
+            continue
+        bb = [o.matrix_world @ Vector(c) for c in o.bound_box]
+        lo_ = Vector((min(p.x for p in bb), min(p.y for p in bb), min(p.z for p in bb)))
+        hi_ = Vector((max(p.x for p in bb), max(p.y for p in bb), max(p.z for p in bb)))
+        mid, ext = (lo_ + hi_) / 2, hi_ - lo_
+        if (mid - campos).length > wl.get("radius", 9) or ext.z < 0.3:
+            continue
+        thin = min(range(2), key=lambda i: ext[i])  # vertical glazing: the thin plan axis is the normal
+        n = Vector((0, 0, 0)); n[thin] = 1.0
+        if n.dot(mid - campos) < 0:
+            n = -n  # n now points from the room out through the glass
+        size = (ext[1 - thin], ext.z)
+        at = mid + n * (ext[thin] / 2 + 0.05)
+        made.append(area_light("portal|" + o.name[:40], size, at, -n, 1.0, 6500, portal=True))
+        made.append(area_light("winfill|" + o.name[:40], size, mid + n * (ext[thin] / 2 + 0.06), -n,
+                               wl.get("w_per_m2", 100) * size[0] * size[1], wl.get("kelvin", 5500)))
+    f = wl.get("camera_fill", {"watts": 40, "kelvin": 4500, "size": 2.0})
+    if f:
+        # tilted up so it bounces off the ceiling: a level fill paints a hot patch on the floor in front of the lens
+        up = (camdir + Vector((0, 0, 0.8))).normalized()
+        made.append(area_light("camfill", (f["size"], f["size"]), campos - camdir * 1.0 + Vector((0, 0, 0.6)),
+                               up, f["watts"], f["kelvin"]))
+    print("window lights: %d glazed openings, camera fill %s" % ((len(made) - (1 if f else 0)) // 2, "on" if f else "off"))
+    return made
+
+
+def sheers(shot, campos):
+    """Drawn sheer curtains inside the glazing whose object name matches shot["sheers"] (regex, or true
+    for all glazing within 9 m). Softens blown windows and adds the soft layer a styled room has. A styling
+    choice like props: it needs approval and is captioned as indicative."""
+    want = shot.get("sheers")
+    if not want:
+        return []
+    rx = re.compile(".*" if want is True else want, re.I)
+    mat = bpy.data.materials.get("sheer") or bpy.data.materials.new("sheer")
+    if not mat.node_tree or "Translucent BSDF" not in mat.node_tree.nodes:
+        mat.use_nodes = True
+        nt = mat.node_tree; nt.nodes.clear()
+        tl = nt.nodes.new("ShaderNodeBsdfTranslucent"); tl.inputs["Color"].default_value = hex_rgba(shot.get("sheer_color", "#f1ece2"))
+        tp = nt.nodes.new("ShaderNodeBsdfTransparent")
+        mx = nt.nodes.new("ShaderNodeMixShader"); mx.inputs["Fac"].default_value = 0.6  # 40% see-through
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        nt.links.new(tp.outputs[0], mx.inputs[1]); nt.links.new(tl.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs["Surface"])
+    made = []
+    for o in glass_objs:
+        if o.hide_render or not rx.search(o.name):
+            continue
+        bb = [o.matrix_world @ Vector(c) for c in o.bound_box]
+        lo_ = Vector((min(p.x for p in bb), min(p.y for p in bb), min(p.z for p in bb)))
+        hi_ = Vector((max(p.x for p in bb), max(p.y for p in bb), max(p.z for p in bb)))
+        mid, ext = (lo_ + hi_) / 2, hi_ - lo_
+        if not 2.0 < (mid - campos).length < 9 or ext.z < 0.8:  # not the window beside the camera: it would fill the frame edge
+            continue
+        thin = min(range(2), key=lambda i: ext[i]); side = 1 - thin
+        n = Vector((0, 0, 0)); n[thin] = 1.0
+        if n.dot(mid - campos) < 0:
+            n = -n
+        w, h, cols = ext[side] * 1.05, ext.z, max(8, int(ext[side] * 1.05 / 0.012))
+        bm = bmesh.new()
+        grid = []
+        for i in range(cols + 1):
+            u = i / cols
+            fold = 0.035 * math.sin(2 * math.pi * u * w / 0.14) + 0.01 * math.sin(2 * math.pi * u * w / 0.37)  # 140 mm pleats
+            col_ = []
+            for z in (lo_.z, lo_.z + h):
+                p = mid.copy(); p[side] = mid[side] - w / 2 + u * w; p.z = z
+                col_.append(bm.verts.new(p - n * (ext[thin] / 2 + 0.12 + fold)))
+            grid.append(col_)
+        for i in range(cols):
+            bm.faces.new((grid[i][0], grid[i + 1][0], grid[i + 1][1], grid[i][1]))
+        me = bpy.data.meshes.new("sheer"); bm.to_mesh(me); bm.free()
+        me.materials.append(mat); me.shade_smooth()
+        ob = bpy.data.objects.new("sheer|" + o.name[:40], me); sc.collection.objects.link(ob)
+        made.append(ob)
+    print("sheers: %d windows" % len(made))
+    return made
+
+
+def check_camera_clear(shot):
+    """Stop if the camera sits inside a solid: those inside faces render as flat black slabs at the frame
+    edges. Rays through the frame start at clip_start; hitting a back face means we see inside a solid."""
+    if shot.get("allow_inside"):
+        return
+    dg = bpy.context.evaluated_depsgraph_get()
+    mw = cam.matrix_world
+    frame = [Vector(v) for v in cam.data.view_frame(scene=sc)]
+    pts_ = frame + [(frame[i] + frame[(i + 1) % 4]) / 2 for i in range(4)] + [sum(frame, Vector()) / 4]
+    for q in pts_:
+        d = (mw.to_3x3() @ q).normalized()
+        o = mw.translation + d * cam.data.clip_start
+        hit, loc_, nrm, _, ob, _ = sc.ray_cast(dg, o, d)
+        if hit and nrm.dot(d) > 0 and ob and not ob.name.startswith(("portal|", "winfill|", "camfill", "sheer|")):
+            sys.exit("CAMERA INSIDE '%s' in shot %s (camera at %s). Move it into the room, or set the shot's "
+                     "clip_start past %.2f m to cut through that wall." % (ob.name, shot["name"], tuple(round(x, 2) for x in mw.translation),
+                                                                         (loc_ - mw.translation).length + 0.05))
 
 
 def look_at(pos, target):
@@ -379,10 +699,12 @@ def render_shot(shot):
     pats = [re.compile(h, re.I) for h in shot.get("hide", [])]
     for o in visible:
         if any(p.search(o.name) for p in pats):
-            o.hide_render = True; hidden.append(o)
+            o.hide_render = o.hide_viewport = True; hidden.append(o)  # viewport too, so ray checks agree
+    cam.data.clip_start = shot.get("clip_start", 0.05)  # > 0.05: cut through a wall behind the camera
+    lights = []
     scale = C.get("scale", 1.0)
     manifest = {}
-    prev_engine, prev_view = sc.render.engine, sc.view_settings.view_transform
+    prev_engine, prev_view, prev_comp = sc.render.engine, sc.view_settings.view_transform, sc.render.use_compositing
     if shot.get("style") == "clay":
         # White model with outlines: the driving video for an AI pass. Clean edges are what the video
         # model locks onto, and the same frames are the reference qa_drift.py checks the AI output against.
@@ -393,6 +715,7 @@ def render_shot(shot):
         sh.show_object_outline, sh.object_outline_color = True, (0.05, 0.05, 0.05)
         sh.show_shadows = False
         sc.view_settings.view_transform = "Standard"
+        sc.render.use_compositing = False  # the QA reference must be geometry only, no bloom or vignette
     variants = {"desktop": tuple(shot.get("size", (1920, 1080))), "mobile": (1080, 1920)}
     variants = {k: v for k, v in variants.items() if k in shot.get("variants", variants)}
     for variant, (w, h) in variants.items():
@@ -422,6 +745,14 @@ def render_shot(shot):
             look_at(pos, tg)
             cam.keyframe_insert("location", frame=f); cam.keyframe_insert("rotation_euler", frame=f)  # a key per frame: easing is ours
         sc.frame_start, sc.frame_end = 1, n
+        sc.frame_set(1)
+        if shot.get("style") != "clay":
+            check_camera_clear(shot)
+        if not lights and engine == "CYCLES" and shot.get("style") != "clay" and (shot["kind"] == "room" or shot.get("camera")) \
+                and C.get("window_lights", {}) is not False and shot.get("window_lights", {}) is not False:
+            lights = window_lights(cam.matrix_world.translation.copy(), (cam.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized(), shot)
+        if not any(o.name.startswith("sheer|") for o in lights):
+            lights += sheers(shot, cam.matrix_world.translation.copy())
         tmp = P(os.path.join("work", "render", shot["name"], variant))
         shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
         dest = os.path.join(out_site, variant)
@@ -460,8 +791,10 @@ def render_shot(shot):
                                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", mp4], check=True)
                 print("video:", mp4)
     for o in hidden:
-        o.hide_render = False
-    sc.render.engine, sc.view_settings.view_transform = prev_engine, prev_view
+        o.hide_render = o.hide_viewport = False
+    for o in lights:
+        bpy.data.objects.remove(o, do_unlink=True)
+    sc.render.engine, sc.view_settings.view_transform, sc.render.use_compositing = prev_engine, prev_view, prev_comp
     return manifest
 
 
@@ -477,7 +810,8 @@ for shot in C["shots"]:
     os.makedirs(P(os.path.join(C["site"], "frames", shot["name"])), exist_ok=True)
     frames[shot["name"]] = render_shot(shot)
 frames["_meta"] = {"source": meta["source"], "rendered": datetime.datetime.now().isoformat(timespec="minutes"),
-                   "sun": {"utc": loc["utc"], "elevation": round(sun_el, 1), "azimuth": round(sun_az, 1)}, "engine": engine}
+                   "sun": {"utc": loc["utc"], "elevation": round(sun_el, 1), "azimuth": round(sun_az, 1)}, "engine": engine,
+                   "styling": "indicative" if C.get("props") else None}
 with open(mf, "w", encoding="utf-8") as fh:
     fh.write("// Written by blender_render.py. Do not edit by hand.\nwindow.FRAMES = %s;\n" % json.dumps(frames, indent=1))
 print("manifest:", mf)

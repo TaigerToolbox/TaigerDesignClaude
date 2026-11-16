@@ -81,6 +81,7 @@ def main():
     ap.add_argument("--radius", type=int, default=3, help="pixels an edge may move (at --width) before it counts as drift")
     ap.add_argument("--min-recall", type=float, default=0.85, help="share of reference edges that must survive, whole frame")
     ap.add_argument("--min-cell", type=float, default=0.60, help="same, worst grid cell (catches one moved wall)")
+    ap.add_argument("--grid", type=int, default=0, help="cells per side (default 4 for sequences, 8 for a single still)")
     ap.add_argument("--report"); ap.add_argument("--sheet")
     a = ap.parse_args()
 
@@ -93,21 +94,23 @@ def main():
         if abs(w0 / h0 - aw / ah) > 0.02:
             sys.exit("aspect ratios differ (reference %dx%d, AI %dx%d): the AI output was cropped or reframed" % (w0, h0, aw, ah))
         size = (a.width, round(a.width * h0 / w0))
+        G = a.grid or (8 if a.samples == 1 else 4)  # a still gets one look, so look closer
         rows, worst = [], []
         for k in range(a.samples):
             t = k / max(1, a.samples - 1)
             r_path, a_path = ref[round(t * (len(ref) - 1))], ai[round(t * (len(ai) - 1))]
             rm = magnitude(gray(r_path, size))
             re_ = rm > max(np.percentile(rm, 92), 0.06)            # the reference's clear edges
+            re_[:2], re_[-2:], re_[:, :2], re_[:, -2:] = False, False, False, False  # padded border isn't geometry
             ae = strongest(magnitude(gray(a_path, size)), 2.5 * re_.sum())  # same budget (x2.5) of the AI's strongest
             hit = re_ & dilate(ae, a.radius)
             recall = hit.sum() / max(1, re_.sum())
             H, W = re_.shape; cells = []
-            for gy in range(4):
-                for gx in range(4):
-                    sl = (slice(gy * H // 4, (gy + 1) * H // 4), slice(gx * W // 4, (gx + 1) * W // 4))
+            for gy in range(G):
+                for gx in range(G):
+                    sl = (slice(gy * H // G, (gy + 1) * H // G), slice(gx * W // G, (gx + 1) * W // G))
                     n = re_[sl].sum()
-                    if n >= 40:  # only cells with real geometry in them
+                    if n >= max(15, 640 // (G * G)):  # only cells with real geometry in them
                         cells.append((hit[sl].sum() / n, gx, gy))
             cell = min(cells) if cells else (1.0, -1, -1)
             ok = recall >= a.min_recall and cell[0] >= a.min_cell
@@ -117,7 +120,7 @@ def main():
         failed = [r for r in rows if not r["pass"]]
         summary = {"pass": not failed, "frames_checked": len(rows), "failed": len(failed),
                    "min_recall": min(r["recall"] for r in rows), "min_cell": min(r["worst_cell"] for r in rows),
-                   "thresholds": {"radius_px_at_width": [a.radius, a.width], "min_recall": a.min_recall, "min_cell": a.min_cell}}
+                   "thresholds": {"radius_px_at_width": [a.radius, a.width], "min_recall": a.min_recall, "min_cell": a.min_cell, "grid": G}}
         print(json.dumps(summary, indent=1))
         for r in failed:
             print("FAIL t=%.2f recall %.2f, worst cell %.2f at grid %s (%s)" % (r["t"], r["recall"], r["worst_cell"], r["cell_xy"], r["ai"]))
@@ -135,7 +138,7 @@ def main():
                 tile = Image.fromarray(px); d = ImageDraw.Draw(tile)
                 if cell[1] >= 0:
                     H, W = re_.shape
-                    d.rectangle([cell[1] * W // 4, cell[2] * H // 4, (cell[1] + 1) * W // 4 - 1, (cell[2] + 1) * H // 4 - 1], outline=(255, 220, 0), width=2)
+                    d.rectangle([cell[1] * W // G, cell[2] * H // G, (cell[1] + 1) * W // G - 1, (cell[2] + 1) * H // G - 1], outline=(255, 220, 0), width=2)
                 d.rectangle([0, 0, 230, 16], fill=(0, 0, 0)); d.text((4, 2), "recall %.2f  worst cell %.2f" % (rc, c), fill=(255, 255, 255))
                 tiles.append(tile)
             sheet = Image.new("RGB", (size[0] * 3, size[1] * ((len(tiles) + 2) // 3)), "black")
