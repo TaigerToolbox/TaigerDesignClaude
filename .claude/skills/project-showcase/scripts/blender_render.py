@@ -660,6 +660,147 @@ def section(shot, hidden):
     return swapped
 
 
+def camera_blocked():
+    """Name of the solid the camera sits inside, or None (see check_camera_clear)."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    mw = cam.matrix_world
+    frame = [Vector(v) for v in cam.data.view_frame(scene=sc)]
+    for q in frame + [(frame[i] + frame[(i + 1) % 4]) / 2 for i in range(4)] + [sum(frame, Vector()) / 4]:
+        d = (mw.to_3x3() @ q).normalized()
+        hit, _, nrm, _, ob, _ = sc.ray_cast(dg, mw.translation + d * cam.data.clip_start, d)
+        if hit and nrm.dot(d) > 0 and ob and not ob.name.startswith(("portal|", "winfill|", "camfill", "sheer|")):
+            return ob.name
+    return None
+
+
+def frame_depths(nx=8, ny=5):
+    """(distance, hit point, object name) along a grid of rays through the frame; (50, None, "") = sky."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    mw = cam.matrix_world; r3 = mw.to_3x3()
+    tr, br, bl, tl = [Vector(v) for v in cam.data.view_frame(scene=sc)]
+    out = []
+    for j in range(ny):
+        for i in range(nx):
+            u, v = (i + 0.5) / nx, (j + 0.5) / ny
+            d = (r3 @ bl.lerp(br, u).lerp(tl.lerp(tr, u), v)).normalized()
+            hit, loc_, _, _, ob, _ = sc.ray_cast(dg, mw.translation + d * 0.05, d)
+            out.append(((loc_ - mw.translation).length, loc_.copy(), ob.name) if hit else (50.0, None, ""))
+    return out
+
+
+def scout(shot):
+    """Candidate hero cameras for one room, ranked and rendered small as a numbered contact sheet.
+    {"name": "kitchen_scout", "kind": "scout", "target": "kitchen", "count": 12}
+    Rules (pro interior practice): eye 1.2 or 1.35 m, camera level (Shift Y frames, verticals stay
+    vertical), 24 mm, headings 30 deg off the walls (two-point perspective, never square-on), from a grid
+    of positions across the room ("step", default 1 m). Rejected: inside a solid, closer than 0.3 m to
+    anything, staring at a near surface, over a third of the view leaving the room, or under 8% of it on
+    furniture, joinery, fixtures or props ("subject": a regex on object names narrows that, e.g.
+    "kitchen|island|bench"). Ranked by view depth inside the room, how much of the frame shows those
+    things (up to 30%: a close-up that fills the frame doesn't win), anything within 1.8 m
+    counting against, and a bonus for a wall close behind (the room opens up ahead). The sheet
+    shows a varied set, not twelve near-copies. Pick one and paste its "shot" from
+    work/scout/<name>/scout.json into shots.json."""
+    tgt = space(shot["target"]); b = tgt["bounds"]
+    w, h = shot.get("size", (640, 360))
+    sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = w, h, 100
+    lens = shot.get("lens", 24)
+    cam.data.type, cam.data.lens, cam.data.sensor_width, cam.data.sensor_fit = "PERSP", lens, 36, "AUTO"
+    cam.data.shift_y, cam.data.clip_start = shot.get("shift_y", 0), 0.05
+    cam.animation_data_clear()
+    dg = bpy.context.evaluated_depsgraph_get()  # geometry doesn't change while scouting
+    cast = lambda o, d: sc.ray_cast(dg, o, d)
+    diag = math.hypot(b[3] - b[0], b[4] - b[1])
+    step, m = shot.get("step", 1.0), 0.3
+    subj = re.compile(shot["subject"], re.I) if shot.get("subject") else None
+    SHELL = ("IfcWall", "IfcSlab", "IfcCovering", "IfcMember", "IfcPlate", "IfcCurtainWall", "IfcDoor", "IfcWindow",
+             "IfcColumn", "IfcBeam", "IfcRailing", "IfcStair", "IfcRoof", "Plane")  # Plane = the ground
+    nx, ny = max(1, int((b[3] - b[0] - 0.8) / step) + 1), max(1, int((b[4] - b[1] - 0.8) / step) + 1)
+    cands = []
+    for eye in shot.get("heights", [1.2, 1.35]):
+        for i in range(nx):
+            for j in range(ny):
+                pos = Vector((b[0] + 0.4 + i * step, b[1] + 0.4 + j * step, b[2] + eye))
+                if any(hh[0] and (hh[1] - pos).length < 0.3 for hh in
+                       (cast(pos, v) for v in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0))))):
+                    continue
+                floor = cast(pos, Vector((0, 0, -1)))
+                if not floor[0] or pos.z - floor[1].z > eye + 0.3 or not cast(pos, Vector((0, 0, 1)))[0]:
+                    continue  # outside the building, over a void, or no ceiling
+                for yaw in shot.get("yaws", [30, 60, 120, 150, 210, 240, 300, 330]):
+                    a = math.radians(yaw); dirv = Vector((math.cos(a), math.sin(a), 0))
+                    look_at(pos, pos + dirv * 5)
+                    bpy.context.view_layer.update()
+                    if camera_blocked():
+                        continue
+                    rays = frame_depths()
+                    ds = sorted(r_[0] for r_ in rays)
+                    med, close = ds[len(ds) // 2], sum(x < 1.8 for x in ds) / len(ds)  # pros keep the foreground clear
+                    # a ray "leaves" if it misses or lands outside the room box: open plans, voids, sky
+                    gone = sum(q is None or not (b[0] - m <= q.x <= b[3] + m and b[1] - m <= q.y <= b[4] + m and b[2] - m <= q.z <= b[5] + m)
+                               for _, q, _ in rays) / len(rays)
+                    # what the view is OF: furniture, joinery, fixtures, props (or the shot's "subject" pattern)
+                    if subj:
+                        stuff = sum(bool(subj.search(n)) for _, _, n in rays) / len(rays)
+                    else:
+                        stuff = sum(bool(n) and not n.startswith(SHELL) for _, _, n in rays) / len(rays)
+                    if med < 2.0 or gone > 0.35 or stuff < 0.08:
+                        continue  # staring at a near surface, mostly looking out of the room, or an empty view
+                    back = cast(pos, -dirv)
+                    backed = back[0] and (back[1] - pos).length < 2.0
+                    score = min(med, diag) - 6.0 * close - 8.0 * gone + (1.0 if backed else 0.0) + 10.0 * min(stuff, 0.3)
+                    cands.append({"score": round(score, 2), "median_m": round(med, 2), "out_of_room": round(gone, 2),
+                                  "content": round(stuff, 2), "yaw": yaw,
+                                  "height": eye, "shot": {"kind": "still", "lens": lens, "camera": {
+                                      "pos": [round(x, 3) for x in pos], "look": [round(x, 3) for x in pos + dirv * 5],
+                                      "shift_y": shot.get("shift_y", 0)}}})
+    if not cands:
+        sys.exit("scout %s: no valid camera in '%s' (all inside solids or facing a near wall)" % (shot["name"], shot["target"]))
+    print("scout %s: %d valid of %d positions x headings" % (shot["name"], len(cands), nx * ny * 8 * len(shot.get("heights", [1, 2]))))
+    cands.sort(key=lambda c: -c["score"])
+    picked = []  # greedy: skip a candidate within 1.5 m and 60 deg of one already picked
+    for c in cands:
+        p0 = Vector(c["shot"]["camera"]["pos"])
+        if all((p0 - Vector(q["shot"]["camera"]["pos"])).xy.length > 1.5 or abs((c["yaw"] - q["yaw"] + 180) % 360 - 180) > 60 for q in picked):
+            picked.append(c)
+    cands = picked
+    cands = cands[:shot.get("count", 12)]
+    out = P(os.path.join("work", "scout", shot["name"]))
+    shutil.rmtree(out, ignore_errors=True); os.makedirs(out)
+    saved = (sc.cycles.samples if engine == "CYCLES" else getattr(sc.eevee, "taa_render_samples", 0))
+    if engine == "CYCLES":
+        sc.cycles.samples = shot.get("samples", 32)
+    else:
+        setall(sc.eevee, taa_render_samples=shot.get("samples", 16))
+    r = sc.render
+    for a in [x for x in dir(r) if x.startswith("use_stamp_")]:
+        setall(r, **{a: False})
+    setall(r, use_stamp=True, use_stamp_note=True, stamp_font_size=max(14, h // 18))
+    for i, c in enumerate(cands, start=1):
+        cm = c["shot"]["camera"]
+        look_at(Vector(cm["pos"]), Vector(cm["look"]))
+        bpy.context.view_layer.update()
+        lights = []
+        if engine == "CYCLES" and C.get("window_lights", {}) is not False:
+            lights = window_lights(cam.matrix_world.translation.copy(), (cam.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized(), shot)
+        r.stamp_note_text = "%02d  score %.1f  %.1fm deep  h%.2f" % (i, c["score"], c["median_m"], c["height"])
+        r.filepath = os.path.join(out, "cand_%02d.png" % i)
+        bpy.ops.render.render(write_still=True)
+        for o in lights:
+            bpy.data.objects.remove(o, do_unlink=True)
+        c["rank"] = i
+    r.use_stamp = False
+    if engine == "CYCLES":
+        sc.cycles.samples = saved
+    else:
+        setall(sc.eevee, taa_render_samples=saved)
+    cols = min(4, len(cands)); rows = -(-len(cands) // cols)
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-i", os.path.join(out, "cand_%02d.png"), "-vf", "tile=%dx%d" % (cols, rows),
+                    "-frames:v", "1", os.path.join(out, "sheet.png")], check=True)
+    json.dump(cands, open(os.path.join(out, "scout.json"), "w"), indent=1)
+    print("scout %s: %d candidates -> %s (sheet.png, scout.json)" % (shot["name"], len(cands), out))
+
+
 def check_camera_clear(shot):
     """Stop if the camera sits inside a solid: those inside faces render as flat black slabs at the frame
     edges. Rays through the frame start at clip_start; hitting a back face means we see inside a solid."""
@@ -851,6 +992,9 @@ if os.path.exists(mf):  # keep shots rendered in earlier runs
 only = C.get("only")
 for shot in C["shots"]:
     if only and shot["name"] not in only:
+        continue
+    if shot["kind"] == "scout":  # a working sheet, not site content
+        scout(shot)
         continue
     os.makedirs(P(os.path.join(C["site"], "frames", shot["name"])), exist_ok=True)
     frames[shot["name"]] = render_shot(shot)
