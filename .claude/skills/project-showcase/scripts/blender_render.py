@@ -98,15 +98,76 @@ def sibling(path, kind, explicit=""):
     return None
 
 
-def world_coords(nt, tile, rotate_deg=0.0):
+def world_coords(nt, tile, rotate_deg=0.0, offset=None):
     """IFC has no UVs: project textures from world position (metres), so a 1.2 m board stays 1.2 m.
-    rotate_deg turns the pattern in plan, e.g. floorboards running north-south."""
+    rotate_deg turns the pattern in plan, e.g. floorboards running north-south. offset: a vector
+    socket (metres) added first, e.g. a random shift per joinery panel or per floorboard."""
     geo = nt.nodes.new("ShaderNodeNewGeometry")
     mp = nt.nodes.new("ShaderNodeMapping")
     mp.inputs["Scale"].default_value = (1 / tile, 1 / tile, 1 / tile)
     mp.inputs["Rotation"].default_value = (0, 0, math.radians(rotate_deg))
-    nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
+    src = geo.outputs["Position"]
+    if offset is not None:
+        add = nt.nodes.new("ShaderNodeVectorMath"); add.operation = "ADD"
+        nt.links.new(src, add.inputs[0]); nt.links.new(offset, add.inputs[1]); src = add.outputs[0]
+    nt.links.new(src, mp.inputs["Vector"])
     return mp.outputs["Vector"]
+
+
+def math_node(nt, op, a, b=None, clamp=False):
+    n = nt.nodes.new("ShaderNodeMath"); n.operation = op; n.use_clamp = clamp
+    for i, v in enumerate((a, b)):
+        if v is None:
+            continue
+        if isinstance(v, (int, float)):
+            n.inputs[i].default_value = v
+        else:
+            nt.links.new(v, n.inputs[i])
+    return n.outputs[0]
+
+
+def boards(nt, spec, rotate_deg):
+    """Floorboards from one texture, no geometry or UVs: the world plan position is cut into boards
+    (spec "190x1820" = width x length in mm, rows staggered), and each board gets its own random
+    shift into the texture plus a small tint and roughness change, so the floor reads as laid planks
+    instead of one repeating image. Returns (offset vector, tint factor, groove height, board random)."""
+    w, l = [float(x) / 1000 for x in spec.lower().split("x")]
+    L = nt.links.new
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    rot = nt.nodes.new("ShaderNodeVectorRotate"); rot.rotation_type = "Z_AXIS"
+    # Same rotation as world_coords' Mapping, so boards run along the scan's horizontal (its grain):
+    # board space x = along the board, y = across. Wood scans have the grain running left to right.
+    rot.inputs["Angle"].default_value = math.radians(rotate_deg)
+    L(geo.outputs["Position"], rot.inputs["Vector"])
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ"); L(rot.outputs["Vector"], sep.inputs[0])
+    u = math_node(nt, "DIVIDE", sep.outputs["Y"], w)
+    row = math_node(nt, "FLOOR", u)
+    stag = nt.nodes.new("ShaderNodeTexWhiteNoise"); stag.noise_dimensions = "1D"; L(row, stag.inputs["W"])
+    v = math_node(nt, "ADD", math_node(nt, "DIVIDE", sep.outputs["X"], l), stag.outputs["Value"])
+    col = math_node(nt, "FLOOR", v)
+    cmb = nt.nodes.new("ShaderNodeCombineXYZ"); L(row, cmb.inputs["X"]); L(col, cmb.inputs["Y"])
+    rnd = nt.nodes.new("ShaderNodeTexWhiteNoise"); rnd.noise_dimensions = "3D"; L(cmb.outputs[0], rnd.inputs["Vector"])
+    off = nt.nodes.new("ShaderNodeVectorMath"); off.operation = "SCALE"; off.inputs["Scale"].default_value = 7.0
+    L(rnd.outputs["Color"], off.inputs[0])
+
+    def edge(t, size):  # 0 in the 1 mm joint between boards, 1 elsewhere
+        f = math_node(nt, "FRACT", t)
+        d = math_node(nt, "MULTIPLY", math_node(nt, "MINIMUM", f, math_node(nt, "SUBTRACT", 1.0, f)), size)
+        return math_node(nt, "DIVIDE", d, 0.0012, clamp=True)
+    groove = math_node(nt, "MINIMUM", edge(u, w), edge(v, l))
+    tint = math_node(nt, "ADD", 0.93, math_node(nt, "MULTIPLY", rnd.outputs["Value"], 0.14))  # +/-7% per board
+    return off.outputs[0], tint, groove, rnd.outputs["Value"]
+
+
+def panel_offset(nt):
+    """Each joinery panel (each IFC object) samples a different patch of the veneer scan, the way real
+    panels are cut from different parts of a log; without it every door shows the same grain."""
+    oi = nt.nodes.new("ShaderNodeObjectInfo")
+    rnd = nt.nodes.new("ShaderNodeTexWhiteNoise"); rnd.noise_dimensions = "1D"
+    nt.links.new(oi.outputs["Random"], rnd.inputs["W"])
+    off = nt.nodes.new("ShaderNodeVectorMath"); off.operation = "SCALE"; off.inputs["Scale"].default_value = 5.0
+    nt.links.new(rnd.outputs["Color"], off.inputs[0])
+    return off.outputs[0], oi.outputs["Random"]
 
 
 def textured(m, b, r):
@@ -114,7 +175,15 @@ def textured(m, b, r):
     import numpy as np
     nt = m.node_tree
     L = nt.links.new
-    vec = world_coords(nt, float(r.get("tile_m") or 1.0), float(r.get("rotate_deg") or 0))
+    rot_deg = float(r.get("rotate_deg") or 0)
+    spec = (r.get("boards") or "").strip()
+    if spec:
+        off, var, groove, _ = boards(nt, spec, rot_deg)
+    else:
+        off, rnd = panel_offset(nt)
+        groove = None  # panels vary +/-3%: veneer leaves never match exactly
+        var = math_node(nt, "ADD", 0.97, math_node(nt, "MULTIPLY", rnd, 0.06))
+    vec = world_coords(nt, float(r.get("tile_m") or 1.0), rot_deg, off)
     diff_path = P(r["texture"])
 
     def img_node(path, color=True):
@@ -130,9 +199,11 @@ def textured(m, b, r):
     keep = (r.get("recolor") or "1").strip().lower() in ("0", "no", "false")  # a supplier slab photo is already the colour
     tint.inputs[1].default_value = (1, 1, 1) if keep else tuple(t / max(mu, 1e-4) for t, mu in zip(target, mean))
     L(tex.outputs["Color"], tint.inputs[0])
+    vary = nt.nodes.new("ShaderNodeVectorMath"); vary.operation = "SCALE"
+    L(tint.outputs["Vector"], vary.inputs[0]); L(var, vary.inputs["Scale"])
     cap = nt.nodes.new("ShaderNodeVectorMath"); cap.operation = "MINIMUM"  # albedo over ~0.85 adds energy and fireflies
     cap.inputs[1].default_value = (0.85, 0.85, 0.85)
-    L(tint.outputs["Vector"], cap.inputs[0]); L(cap.outputs["Vector"], b.inputs["Base Color"])
+    L(vary.outputs["Vector"], cap.inputs[0]); L(cap.outputs["Vector"], b.inputs["Base Color"])
     rough = float(r.get("roughness") or 0.5)
     rp = sibling(diff_path, "rough", (r.get("roughness_map") or "").strip())
     if rp:  # keep the map's variation, centred on the CSV value: its 5th..95th percentile maps to rough +/- 0.1
@@ -150,6 +221,13 @@ def textured(m, b, r):
     bump.inputs["Strength"].default_value = 0.4 * float(r.get("normal_strength") or 0.5)
     bump.inputs["Distance"].default_value = 0.002
     L(src.outputs["Color"], bump.inputs["Height"]); L(bump.outputs["Normal"], b.inputs["Normal"])
+    if groove is not None:  # the joint between boards: a 1 mm dark-edged groove catches the light
+        gb = nt.nodes.new("ShaderNodeBump")
+        gb.inputs["Strength"].default_value, gb.inputs["Distance"].default_value = 1.0, 0.0008
+        L(groove, gb.inputs["Height"]); L(bump.outputs["Normal"], gb.inputs["Normal"]); L(gb.outputs["Normal"], b.inputs["Normal"])
+        ao = nt.nodes.new("ShaderNodeVectorMath"); ao.operation = "SCALE"  # joints read darker (dirt, shadow)
+        L(cap.outputs["Vector"], ao.inputs[0]); L(math_node(nt, "ADD", 0.55, math_node(nt, "MULTIPLY", groove, 0.45)), ao.inputs["Scale"])
+        L(ao.outputs["Vector"], b.inputs["Base Color"])
 
 
 def marble(m, b, r):
@@ -168,18 +246,25 @@ def marble(m, b, r):
             n.inputs[k].default_value = v
         return n
 
-    def ridge(scale, direction, lo):
-        w = node("ShaderNodeTexWave", Scale=scale, Distortion=10.0, Detail=8.0)
+    def ridge(scale, direction, lo, distortion, detail):
+        # low detail keeps veins as long smooth meanders; high detail frays them into dendrite blobs
+        w = node("ShaderNodeTexWave", Scale=scale, Distortion=distortion, Detail=detail)
         w.wave_type, w.bands_direction = "BANDS", direction
-        w.inputs["Detail Roughness"].default_value = 0.7
+        w.inputs["Detail Roughness"].default_value = 0.5
         L(vec, w.inputs["Vector"])
         mr = node("ShaderNodeMapRange", **{"From Min": lo, "From Max": 1.0})  # only the crest of each band
         L(w.outputs["Fac"], mr.inputs["Value"])
         pw = node("ShaderNodeMath"); pw.operation = "POWER"; pw.inputs[1].default_value = 2.5
         L(mr.outputs["Result"], pw.inputs[0])
-        return pw.outputs[0]
+        return pw.outputs[0], w.outputs["Fac"]
 
-    big, fine = ridge(0.4, "DIAGONAL", 0.9), ridge(1.6, "Y", 0.95)
+    halo, wf = ridge(0.4, "DIAGONAL", 0.9, 7.0, 4.0)
+    core = node("ShaderNodeMapRange", **{"From Min": 0.985, "From Max": 0.995}); L(wf, core.inputs["Value"])
+    grit = node("ShaderNodeTexNoise", Scale=40.0, Detail=8.0); L(vec, grit.inputs["Vector"])  # mineral texture inside the vein
+    gr = node("ShaderNodeMapRange", **{"From Min": 0.35, "From Max": 0.65, "To Min": 0.55}); L(grit.outputs["Fac"], gr.inputs["Value"])
+    core_t = math_node(nt, "MULTIPLY", core.outputs["Result"], gr.outputs["Result"])
+    big = math_node(nt, "MAXIMUM", math_node(nt, "MULTIPLY", halo, 0.6), core_t)  # textured core, soft halo
+    fine = ridge(1.6, "Y", 0.96, 6.0, 4.0)[0]
     patch = node("ShaderNodeTexNoise", Scale=1.1, Detail=4.0); L(vec, patch.inputs["Vector"])
     pm = node("ShaderNodeMapRange", **{"From Min": 0.55, "From Max": 0.65}); L(patch.outputs["Fac"], pm.inputs["Value"])
     fw = node("ShaderNodeMath"); fw.operation = "MULTIPLY"; L(fine, fw.inputs[0]); L(pm.outputs["Result"], fw.inputs[1])
@@ -388,15 +473,16 @@ else:
 
 # ---------- colour and render settings
 sc.view_settings.view_transform = "AgX"
-sc.view_settings.exposure = C.get("exposure", 0.0)  # interiors with window lights: +1.5 to +2.5 (benchmarked)
+sc.view_settings.exposure = C.get("exposure", 0.0) if C.get("exposure") != "auto" else 0.0  # "auto": see auto_exposure
 if C.get("white_balance"):  # kelvin; ~5300 K keeps warm greige walls from reading grey under a blue sky
     try:
         sc.view_settings.use_white_balance = True
         sc.view_settings.white_balance_temperature = C["white_balance"]
     except AttributeError:
         print("white balance needs Blender 4.3+, skipped")
-# Base contrast by default: interiors already starve the shadows, a punchier look crushes them to black.
-for look in (C.get("look", "AgX - Base Contrast"), "AgX - Base Contrast", "Base Contrast", "None"):
+# Medium high contrast by default: with "exposure": "auto" the room is lifted first, and the extra contrast
+# is what stops a beige room reading as a grey wash (benchmarked). Base Contrast if shadows crush.
+for look in (C.get("look", "AgX - Medium High Contrast"), "AgX - Base Contrast", "Base Contrast", "None"):
     try:
         sc.view_settings.look = look; break
     except TypeError:
@@ -419,7 +505,7 @@ if engine == "CYCLES":
            adaptive_min_samples=32, use_denoising=True, denoiser="OPENIMAGEDENOISE",
            denoising_input_passes="RGB_ALBEDO_NORMAL", denoising_prefilter="ACCURATE",
            seed=0, use_animated_seed=False,  # fixed seed: no boiling noise between frames
-           max_bounces=16, diffuse_bounces=6, glossy_bounces=3, transmission_bounces=4, transparent_max_bounces=16,
+           max_bounces=16, diffuse_bounces=C.get("diffuse_bounces", 10), glossy_bounces=3, transmission_bounces=4, transparent_max_bounces=16,
            caustics_reflective=False, caustics_refractive=False, blur_glossy=1.0,
            sample_clamp_indirect=C.get("clamp_indirect", 5.0), use_light_tree=True)
     sc.render.use_persistent_data = True  # sequences: don't rebuild the scene every frame
@@ -706,7 +792,7 @@ def scout(shot):
     sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = w, h, 100
     lens = shot.get("lens", 24)
     cam.data.type, cam.data.lens, cam.data.sensor_width, cam.data.sensor_fit = "PERSP", lens, 36, "AUTO"
-    cam.data.shift_y, cam.data.clip_start = shot.get("shift_y", 0), 0.05
+    cam.data.shift_y, cam.data.clip_start = shot.get("shift_y", -0.05), 0.05  # a little shift down: less dead ceiling
     cam.animation_data_clear()
     dg = bpy.context.evaluated_depsgraph_get()  # geometry doesn't change while scouting
     cast = lambda o, d: sc.ray_cast(dg, o, d)
@@ -753,7 +839,7 @@ def scout(shot):
                                   "content": round(stuff, 2), "yaw": yaw,
                                   "height": eye, "shot": {"kind": "still", "lens": lens, "camera": {
                                       "pos": [round(x, 3) for x in pos], "look": [round(x, 3) for x in pos + dirv * 5],
-                                      "shift_y": shot.get("shift_y", 0)}}})
+                                      "shift_y": shot.get("shift_y", -0.05)}}})
     if not cands:
         sys.exit("scout %s: no valid camera in '%s' (all inside solids or facing a near wall)" % (shot["name"], shot["target"]))
     print("scout %s: %d valid of %d positions x headings" % (shot["name"], len(cands), nx * ny * 8 * len(shot.get("heights", [1, 2]))))
@@ -820,6 +906,38 @@ def check_camera_clear(shot):
                                                                          (loc_ - mw.translation).length + 0.05))
 
 
+def auto_exposure(shot):
+    """"exposure": "auto" (top level or per shot): a quarter-size, low-sample test render from the
+    shot's first frame, then exposure set so the log-average brightness of the room (brightest 3%
+    left out: windows and lamps) lands on exposure_target (scene-linear, default 0.32, a bright but
+    unclipped interior). A hand-set exposure is right for one camera only; this holds for any room."""
+    import numpy as np
+    want = shot.get("exposure", C.get("exposure", 0.0))
+    if want != "auto":
+        sc.view_settings.exposure = want  # a per-shot number overrides an earlier shot's auto value
+        return
+    r, im = sc.render, sc.render.image_settings
+    saved = (r.resolution_percentage, r.filepath, im.file_format, sc.view_settings.exposure)
+    ss = sc.cycles.samples if engine == "CYCLES" else None
+    r.resolution_percentage = 25
+    if engine == "CYCLES":
+        sc.cycles.samples = 16
+    im.file_format = "OPEN_EXR"; sc.view_settings.exposure = 0.0
+    path = P(os.path.join("work", "render", "_exposure.exr"))
+    r.filepath = path
+    bpy.ops.render.render(write_still=True)
+    img = bpy.data.images.load(path); px = pixels(img); bpy.data.images.remove(img)
+    lum = np.maximum(px @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32), 1e-4)
+    lum = lum[lum <= np.percentile(lum, 97)]
+    gmean = float(np.exp(np.log(lum).mean()))
+    ev = max(-3.0, min(6.0, math.log2(shot.get("exposure_target", C.get("exposure_target", 0.32)) / gmean)))
+    r.resolution_percentage, r.filepath, im.file_format = saved[:3]
+    if ss is not None:
+        sc.cycles.samples = ss
+    sc.view_settings.exposure = ev
+    print("auto exposure %s: log-average %.4f -> exposure %+.2f EV" % (shot["name"], gmean, ev))
+
+
 def look_at(pos, target):
     cam.location = pos
     cam.rotation_euler = (target - pos).to_track_quat("-Z", "Y").to_euler()
@@ -854,7 +972,7 @@ def keyframes(shot, aspect, n):
                 look.z = pos.z  # keep verticals vertical; frame with shift instead of tilt
                 cam.data.shift_y = cm.get("shift_y", 0)
             yield pos, look
-        elif kind in ("orbit", "still"):
+        elif kind in ("orbit", "still", "buildup"):
             az = shot.get("az", 215); az = lerp(az[0], az[1], t) if isinstance(az, list) else az
             d = fit_distance(radius, lens, aspect) * shot.get("zoom", 1.0)
             yield orbit_pos(center, az, shot.get("el", 18), d), center
@@ -874,6 +992,40 @@ def keyframes(shot, aspect, n):
             dirv = (far - start).normalized()
             pos = start + dirv * lerp(0, shot.get("dolly", 0.8), t)
             yield pos, pos + dirv * 5  # level camera: verticals stay vertical
+
+
+# Roofs are often exported as IfcSlab (PredefinedType ROOF, lost in the name): a slab named "roof" is envelope.
+BUILD_STAGES = [["Structure", r"(?i)^Ifc(Footing|Pile|Column|Beam|Member)|^IfcSlab(?!.*roof)"], ["Walls", r"^IfcWall"],
+                ["Envelope", r"(?i)^Ifc(Roof|CurtainWall|Window|Plate|Door|Railing|Stair|Ramp|Slab)"], ["Fit-out", r"."]]
+
+
+def buildup(shot, n):
+    """Frame to finished from the IFC classes alone, no programme file: structure, walls, envelope,
+    fit-out, each stage rising storey by storey (by each element's lowest point). "stages":
+    [[label, regex on object names], ...] overrides the order, e.g. when a model exports its walls
+    as IfcBuildingElementProxy; anything matching no stage comes in with the last one. Keys
+    hide_render per object, returns [{label, frame}] for the manifest (the site captions each stage)."""
+    stages = shot.get("stages", BUILD_STAGES)
+    rx = [re.compile(s[1]) for s in stages]
+    groups = [[] for _ in stages]
+    objs = [o for o in visible if not o.hide_render] + [o for o in sc.objects if o.users_collection and
+                                                         o.users_collection[0].name == "furniture" and o.type == "MESH"]
+    for o in objs:
+        k = next((i for i, r_ in enumerate(rx) if r_.search(o.name)), len(stages) - 1)
+        groups[k].append(o)
+    hold = max(1, round(n * 0.12))  # the finished building holds on screen at the end
+    per = (n - hold) / len(stages)
+    marks = []
+    for k, g in enumerate(groups):
+        g.sort(key=lambda o: min((o.matrix_world @ Vector(c)).z for c in o.bound_box))
+        start = 1 + k * per
+        marks.append({"label": stages[k][0], "frame": int(start), "count": len(g)})
+        for i, o in enumerate(g):
+            f = int(start + per * 0.85 * i / max(1, len(g)))
+            o.hide_render = True; o.keyframe_insert("hide_render", frame=0)
+            o.hide_render = False; o.keyframe_insert("hide_render", frame=max(1, f))
+    print("buildup %s: %s" % (shot["name"], ", ".join("%s %d from frame %d" % (m["label"], m["count"], m["frame"]) for m in marks)))
+    return objs, marks
 
 
 def render_shot(shot):
@@ -928,6 +1080,7 @@ def render_shot(shot):
         for f, (pos, tg) in enumerate(keyframes(shot, aspect, n), start=1):
             look_at(pos, tg)
             cam.keyframe_insert("location", frame=f); cam.keyframe_insert("rotation_euler", frame=f)  # a key per frame: easing is ours
+        built, marks = buildup(shot, n) if shot["kind"] == "buildup" else ([], None)
         sc.frame_start, sc.frame_end = 1, n
         sc.frame_set(1)
         if shot.get("style") != "clay":
@@ -937,12 +1090,16 @@ def render_shot(shot):
             lights = window_lights(cam.matrix_world.translation.copy(), (cam.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized(), shot)
         if not any(o.name.startswith("sheer|") for o in lights):
             lights += sheers(shot, cam.matrix_world.translation.copy())
+        if shot.get("style") != "clay":
+            auto_exposure(shot)
         tmp = P(os.path.join("work", "render", shot["name"], variant))
         shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
         dest = os.path.join(out_site, variant)
         shutil.rmtree(dest, ignore_errors=True); os.makedirs(dest)
         sc.render.filepath = os.path.join(tmp, "")
         bpy.ops.render.render(animation=True)
+        for o in built:  # the next shot sees the finished building again
+            o.animation_data_clear(); o.hide_render = False
         q = str(shot.get("quality", 78))
         if shot["kind"] == "still":
             src = os.path.join(tmp, "0001.png")
@@ -968,6 +1125,8 @@ def render_shot(shot):
             kb = sum(os.path.getsize(os.path.join(dest, x)) for x in os.listdir(dest)) / 1024
             print("%s/%s: %d frames, %.0f KB total, %.0f KB/frame" % (shot["name"], variant, n, kb, kb / n))
             manifest[variant] = {"count": n, "w": sc.render.resolution_x, "h": sc.render.resolution_y}
+            if marks:
+                manifest[variant]["stages"] = marks
             if shot.get("video"):  # an MP4 of the same frames, e.g. the driving video for ai_pack.py
                 os.makedirs(P(os.path.join("work", "ai")), exist_ok=True)
                 mp4 = P(os.path.join("work", "ai", "%s_%s.mp4" % (shot["name"], variant)))
