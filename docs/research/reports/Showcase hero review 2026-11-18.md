@@ -4,7 +4,7 @@ A technical-artist review of the project-showcase pipeline against its goal: fro
 
 ## Verdict
 
-**Kitchen hero: about 4/10 before, about 6/10 after.** The committed pipeline, run on the scout camera with the current finishes file, rendered the stone as plain white (the scanned stone stand-in had been deleted) and the room as a murky grey wash. After this pass the stone reads as veined stone, the floor reads as laid boards, exposure is set per camera by measurement and the image has contrast. The rest of the gap to 8 can't be closed in code on this machine. It needs four owner decisions, listed at the end.
+**Kitchen hero: about 4/10 before, about 5.5 to 6/10 after.** The committed pipeline, run on the scout camera with the current finishes file, rendered the stone as plain white (the scanned stone stand-in had been deleted) and the room as a murky grey wash. After this pass the stone reads as veined stone, the floor reads as laid boards, exposure is set per camera by measurement and the image has contrast. The rest of the gap to 8 can't be closed in code on this machine. It needs four owner decisions, listed at the end.
 
 These are self-scores against the architect's own marketing render (8.5 to 9 in earlier blind reviews), using the same headings as the earlier benchmark. They aren't blind. Get a blind re-score before quoting a number to anyone.
 
@@ -14,7 +14,7 @@ These are self-scores against the architect's own marketing render (8.5 to 9 in 
 | Light and exposure | 4 | 5.5 | Auto exposure, more diffuse bounces, contrast look, weaker camera fill |
 | Composition | 5 | 5.5 | Scout camera 05, a little lens shift down |
 | Styling | 3 | 3 | Unchanged: the same ten CC0 props |
-| Finish (grade, noise) | 5 | 6 | Medium High Contrast; 1200 px final at 256 samples |
+| Finish (grade, noise) | 5 | 5 | Medium High Contrast helps, but the 1200 px, 256-sample CPU final (27 min) still shows denoiser blotches on the dim ceiling |
 
 Sample house still: about 2.5/10 and not worth more work. It's a test model (a single-box kitchen, no context, a flat ground plane to the horizon). It proves the pipeline runs end to end, nothing more.
 
@@ -50,4 +50,4 @@ Kept in the private folder `_private-showcase/out/`: `base_hero.png` (before), `
 3. **GPU for iteration**: a rented RTX 4090 at about A$1 an hour, or Kaggle for public models only. Lighting and framing passes aren't practical at 5 minutes a look.
 4. **AI still polish** (step 6 of the skill): needs the developer's and architect's written OK before any client design goes to an image model, plus a quoted credit cost.
 
-With 1 to 3 and a one to two hour art-direction pass, the research's estimate of about 8 still looks right. Code alone on this laptop tops out around 6 to 6.5.
+With 1 to 3 and a one to two hour art-direction pass, the research's estimate of about 8 still looks right. Code alone on this laptop tops out around 6.
