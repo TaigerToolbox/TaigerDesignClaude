@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project showcase</title>
+  <meta name="description" content="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#top" data-bind="name"></a>
+    <nav aria-label="Sections"></nav>
+  </header>
+
+  <main id="top">
+    <noscript><p class="band">This showcase needs JavaScript for its interactive scenes.</p></noscript>
+  </main>
+
+  <footer>
+    <div>
+      <p class="brand" data-bind="name"></p>
+      <p class="muted" data-bind="address"></p>
+    </div>
+    <p class="muted small footer-disclaimer"></p>
+    <a class="credit" href="https://taigergroup.com.au" target="_blank" rel="noopener">
+      <img src="assets/taiger-emblem.png" alt="" width="20" height="20"> Built by Taiger Group
+    </a>
+  </footer>
+
+  <!-- data first: the project content, then what the render pipeline produced -->
+  <script src="data/project.js"></script>
+  <script src="data/schedule.js"></script>
+  <script src="frames/manifest.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

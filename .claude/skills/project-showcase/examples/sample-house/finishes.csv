@@ -1,0 +1,9 @@
+ifc_material,color,roughness,metallic,transmission,hide
+concrete_reinforced_in-situ,#b9b4ab,0.8,0,0,
+stone_sand-lime,#e4ddd0,0.7,0,0,
+gypsum_fiber-board_panel,#f1eee8,0.6,0,0,
+composite_element_roof,#3d3f42,0.55,0,0,
+wood_mdf_plate,#c9a77c,0.45,0,0,
+bulk-material_sand-coarse_generic,#cdb994,0.95,0,0,
+virtual_black,#000000,1,0,0,1
+virtual_white,#ffffff,1,0,0,1
