@@ -1,0 +1,5 @@
+# the public IFC is downloaded, and build output is regenerated: neither is committed
+*.ifc
+work/
+explore/
+site/

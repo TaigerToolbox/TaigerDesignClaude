@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Explore</title>
+<style>
+  :root { --ink: #1d1f21; --muted: #6b6f73; --line: #d9dcdf; --bg: #eef0f1; --panel: rgba(255,255,255,.92); --accent: #1d1f21; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 14px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; touch-action: none; }
+  .bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 4px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; box-shadow: 0 4px 18px rgba(0,0,0,.08); max-width: calc(100% - 32px); }
+  .bar button, .levels button, .rooms button { appearance: none; border: 0; background: transparent; color: var(--ink); font: inherit; padding: 9px 14px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+  .bar button[aria-pressed="true"], .levels button[aria-pressed="true"], .rooms button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .side { position: fixed; right: 16px; top: 64px; bottom: 84px; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
+  .levels, .rooms { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; display: flex; flex-direction: column; gap: 2px; max-height: 100%; overflow-y: auto; }
+  .levels button, .rooms button { text-align: left; padding: 7px 12px; font-size: 13px; }
+  .top { position: fixed; left: 16px; top: max(14px, env(safe-area-inset-top)); right: 16px; display: flex; align-items: flex-start; gap: 10px; pointer-events: none; }
+  .title { font-weight: 600; font-size: 15px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; pointer-events: auto; }
+  .info-btn { pointer-events: auto; margin-left: auto; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font: 600 14px Georgia, serif; cursor: pointer; }
+  .hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 56px); font-size: 12px; color: var(--muted);
+    background: var(--panel); border-radius: 6px; padding: 4px 9px; white-space: nowrap; }
+  .load { position: fixed; left: 16px; right: 16px; top: 58px; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .load i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .info { position: fixed; inset: auto 16px 84px 16px; max-width: 520px; max-height: 60vh; overflow: auto; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.12); font-size: 13px; }
+  .info h2 { font-size: 14px; margin: 0 0 6px; }
+  .info table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  .info td { border-top: 1px solid var(--line); padding: 4px 6px 4px 0; vertical-align: top; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); vertical-align: -2px; }
+  .ph { color: var(--muted); font-style: italic; }
+  .fps { position: fixed; left: 16px; bottom: 16px; font: 12px ui-monospace, monospace; background: var(--panel); padding: 3px 6px; border-radius: 5px; }
+  [hidden] { display: none !important; }
+  @media (max-width: 640px) {
+    .side { right: 8px; top: 60px; bottom: 80px; }
+    .levels button, .rooms button { padding: 6px 9px; font-size: 12px; }
+    .bar button { padding: 9px 11px; }
+    .hint { display: none; }
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./lib/three/build/three.module.min.js", "three/addons/": "./lib/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div class="top"><div class="title" id="title">Loading</div><button class="info-btn" id="infoBtn" aria-label="About this model" aria-expanded="false">i</button></div>
+<div class="load" id="load"><i></i></div>
+<div class="side"><div class="levels" id="levels" hidden></div><div class="rooms" id="rooms" hidden></div></div>
+<div class="hint" id="hint"></div>
+<nav class="bar" id="bar" aria-label="Views">
+  <button data-view="exterior" aria-pressed="true">Exterior</button>
+  <button data-view="cutaway" aria-pressed="false">Cutaway</button>
+  <button data-view="room" aria-pressed="false">Rooms</button>
+</nav>
+<section class="info" id="info" hidden></section>
+<div class="fps" id="fps" hidden></div>
+<noscript>This 3D view needs JavaScript and WebGL.</noscript>
+<script type="module" src="./viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "Sample house",
+  "ifc": "Building-Architecture.ifc",
+  "work": "work",
+  "out": "explore",
+  "finishes": [
+    "finishes.csv"
+  ],
+  "rooms": [
+    {
+      "id": "living",
+      "name": "Living room",
+      "match": "living"
+    }
+  ],
+  "cut_height": 1.2
+}

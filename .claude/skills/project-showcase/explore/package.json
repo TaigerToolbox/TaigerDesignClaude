@@ -1,0 +1,9 @@
+{
+  "name": "showcase-explore",
+  "private": true,
+  "description": "Viewer libraries and the glTF packer for the explore view (see README.md)",
+  "dependencies": {
+    "three": "0.170.0",
+    "gltfpack": "0.22.0"
+  }
+}
