@@ -71,9 +71,10 @@ def storey_svg(st, units, rooms, rot=0.0):
     s.append('<path class="window" d="%s"/>' % path_d(shapely.union_all(st["windows"])) if st["windows"] else "")
     s.append('<path class="door" d="%s"/>' % path_d(shapely.union_all(st["doors"])) if st["doors"] else "")
     s.append('<path class="wall" d="%s"/>' % path_d(st["walls"]))
-    s.append('<g class="labels">')
+    fs = max(0.3, vb[2] / 80)  # labels readable at building scale, not just house scale
+    s.append('<g class="labels" style="font-size:%.2fpx">' % fs)
     for r in rooms:
-        if r["poly"].area < 3:
+        if r["poly"].area < max(3, (fs * 5) ** 2):  # too small to hold its label: name shows on tap
             continue
         p = r["poly"].representative_point()
         s.append('<text x="%.2f" y="%.2f" data-for="%s"><tspan x="%.2f">%s</tspan><tspan x="%.2f" dy="1.15em" class="a">%s m²</tspan></text>'
@@ -239,6 +240,8 @@ def build_manifest(proj, cfg, plan):
         panos = json.load(open(pj))
     rooms = {r["id"]: r for r in plan["rooms"]}
     for pid, p in panos.items():  # hotspots: every other panorama in the same unit (or storey)
+        if cfg.get("panos", {}).get("finishes_note"):
+            p["finishes_note"] = cfg["panos"]["finishes_note"]
         r = rooms.get(pid)
         if not r:
             continue

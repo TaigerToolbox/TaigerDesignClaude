@@ -226,7 +226,8 @@
     buildStack();
     // deep links: #room=<id>, #unit=<id>, #level=<id>, #pano=<id>
     var h = {}; location.hash.slice(1).split("&").forEach(function (kv) { var p = kv.split("="); if (p[1]) h[p[0]] = decodeURIComponent(p[1]); });
-    var pick = byId[h.room || h.unit], first = M.storeys.find(function (s) { return s.units.length; }) || M.storeys[0];
+    // open on the level with the most residences (lowest one on a tie)
+    var pick = byId[h.room || h.unit], first = M.storeys.reduce(function (a, s) { return !a || s.units.length > a.units.length ? s : a; }, null);
     if (h.focus) {  // &focus=1: show only the linked section (a shareable single view; also used for screenshots)
       var sec = h.pano ? "#panoramas" : h.explore ? "#explore" : "#plans";
       document.body.dataset.focus = "1"; $(sec).classList.add("focus");

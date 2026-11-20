@@ -60,7 +60,7 @@ button { font: inherit; color: inherit; }
 .plan .door { fill: #8a8378; pointer-events: none; }
 .plan .window { fill: #6f8fa3; pointer-events: none; }
 .plan .other { fill: #b4ab9c; pointer-events: none; }
-.plan text { font: 500 0.34px var(--sans); fill: #2b2d31; text-anchor: middle; pointer-events: none; }
+.plan text { font-family: var(--sans); font-weight: 500; fill: #2b2d31; text-anchor: middle; pointer-events: none; }
 .plan text .a { fill: #6d675e; font-weight: 400; }
 .plan .cam { fill: rgba(243, 239, 232, 0.4); stroke: var(--ink); stroke-width: 0.09; cursor: pointer; }
 .plan .cam:hover { fill: var(--accent); }
