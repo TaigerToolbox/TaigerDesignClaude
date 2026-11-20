@@ -26,7 +26,7 @@ document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe8ebed);
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 5000);
-const hemi = new THREE.HemisphereLight(0xf4f6fa, 0xb3afa6, 1.6); // light ground colour: ceilings face down and read too dark otherwise
+const hemi = new THREE.HemisphereLight(0xf4f6fa, 0xd2cec6, 1.6); // light ground colour: ceilings face down and read too dark otherwise
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff6e8, 2.4);
 sun.castShadow = true;
@@ -34,6 +34,10 @@ sun.shadow.mapSize.setScalar(mobile ? 1024 : 2048);
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
+// interiors sit in the envelope's shadow: an unshadowed fill from one side gives walls facing different ways different tones
+const fill = new THREE.DirectionalLight(0xfff3e0, 0);
+fill.position.set(0.6, -0.25, 0.4); // slightly from below so ceilings get some too
+scene.add(fill);
 
 const root = new THREE.Group();
 scene.add(root);
@@ -199,12 +203,15 @@ function applyVisibility() {
   clip.constant = capUniforms.uCapY.value = lvl.z + cfg.cut_height;
   capUniforms.uCapOn.value = cut ? 1 : 0;
   ground.visible = view.kind !== 'cutaway' || lvl.z >= cfg.ground_y - 0.5;
-  hemi.intensity = view.kind === 'room' ? 2.4 : 1.6; // interiors get no sun through the shadowed envelope
+  hemi.intensity = view.kind === 'room' ? 1.5 : 1.6;
+  fill.intensity = view.kind === 'room' ? 1.6 : 0; // interiors get no sun through the shadowed envelope
   renderer.shadowMap.needsUpdate = true;
   dirty = true;
 }
 
+let tweenEnd = null;
 function tweenCamera(pos, target, instant) {
+  tweenEnd = { pos: pos.clone(), target: target.clone() };
   const p0 = camera.position.clone(), t0 = orbit.target.clone(), start = performance.now(), dur = instant ? 0 : 700;
   const tick = () => {
     const k = dur ? Math.min(1, (performance.now() - start) / dur) : 1, e = k * k * (3 - 2 * k);
@@ -221,23 +228,28 @@ function setView(kind, arg, instant) {
   if (kind === 'cutaway' && arg) view.level = (findLevel(arg) || findLevel(view.level) || levels[0]).id;
   if (kind === 'room') view.room = (cfg.rooms.find((r) => r.id === arg) || cfg.rooms[0] || {}).id;
   applyVisibility();
+  if (kind !== 'room') camera.fov = 40;
   const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()), r = Math.max(size.length() / 2, 5);
-  const fit = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? 1.25 / camera.aspect : 0.95);
+  // fit to the narrower of the two fields of view, so portrait phones frame the building as well as desktops
+  const half = Math.min(THREE.MathUtils.degToRad(camera.fov / 2), Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
+  const fit = r / Math.sin(half);
   if (kind === 'exterior') {
     camera.near = 0.5;
     orbit.minDistance = 3; orbit.maxPolarAngle = THREE.MathUtils.degToRad(88);
-    tweenCamera(c.clone().add(new THREE.Vector3(-0.62, 0.38, 0.69).normalize().multiplyScalar(fit * 0.9)), c, instant);
+    tweenCamera(c.clone().add(new THREE.Vector3(-0.62, 0.38, 0.69).normalize().multiplyScalar(fit * 0.8)), c, instant);
   } else if (kind === 'cutaway') {
     const lvl = findLevel(view.level);
     const t = new THREE.Vector3(c.x, lvl.z + cfg.cut_height * 0.5, c.z);
     camera.near = 0.3;
     orbit.minDistance = 2; orbit.maxPolarAngle = THREE.MathUtils.degToRad(85);
-    const d = Math.max(size.x, size.z) / 2 / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? 1.2 / camera.aspect : 0.95);
+    const d = fit * 0.7;
     tweenCamera(t.clone().add(new THREE.Vector3(-0.45, 0.8, 0.55).normalize().multiplyScalar(d)), t, instant);
   } else if (kind === 'room') {
     const room = cfg.rooms.find((x) => x.id === view.room);
     if (!room) return setView('exterior');
     camera.near = 0.05;
+    // interiors: wider, but never over 90 deg horizontal (wide lenses oversell rooms)
+    camera.fov = Math.min(camera.aspect < 1 ? 70 : 60, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(Math.PI / 4) / camera.aspect)));
     const p = new THREE.Vector3(...room.camera.pos), l = new THREE.Vector3(...room.camera.look);
     walk.target.copy(p); walk.floor = p.y - walk.eye;
     if (instant || camera.position.distanceTo(p) > 40) camera.position.copy(p);
@@ -275,6 +287,7 @@ function syncUI() {
   levelsEl.hidden = view.kind !== 'cutaway';
   roomsEl.hidden = view.kind !== 'room' || cfg.rooms.length < 2;
   for (const b of levelsEl.children) b.setAttribute('aria-pressed', String(b.dataset.level === view.level));
+  levelsEl.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   for (const b of roomsEl.children) b.setAttribute('aria-pressed', String(b.dataset.room === view.room));
   const room = cfg.rooms.find((r) => r.id === view.room);
   $('title').textContent = (cfg.name || 'Explore') + (view.kind === 'cutaway' ? ' · ' + findLevel(view.level).name : view.kind === 'room' && room ? ' · ' + room.name : '');
@@ -297,7 +310,20 @@ $('infoBtn').onclick = () => { info.hidden = !info.hidden; $('infoBtn').setAttri
 // ---------- loop
 const fpsEl = $('fps');
 let frames = 0, t0 = performance.now(), fps = 0, last = performance.now();
-window.__explore = { get fps() { return fps; }, get tris() { return tris; }, get bytes() { return loaded; }, ready: false, setView, view };
+window.__explore = { get fps() { return fps; }, get tris() { return tris; }, get bytes() { return loaded; }, ready: false, setView, view, camera, scene, render: renderNow, bench };
+// render one frame now, finishing any camera move (for screenshots when the page runs in the background)
+function renderNow() {
+  if (walk.on) { camera.position.copy(walk.target); camera.rotation.set(-walk.pitch, walk.yaw, 0, 'YXZ'); }
+  else { if (tweenEnd) { camera.position.copy(tweenEnd.pos); orbit.target.copy(tweenEnd.target); } orbit.update(); }
+  if (renderer.shadowMap.needsUpdate === false) renderer.shadowMap.needsUpdate = true;
+  renderer.render(scene, camera);
+}
+// GPU time per frame over n frames (gl.finish after each), a rough fps ceiling for this device
+function bench(n = 60) {
+  const gl = renderer.getContext(); renderNow(); gl.finish();
+  const t = performance.now(); for (let i = 0; i < n; i++) { renderer.render(scene, camera); gl.finish(); }
+  const ms = (performance.now() - t) / n; return { msPerFrame: +ms.toFixed(2), fps: Math.round(1000 / ms), tris, bytes: loaded };
+}
 renderer.setAnimationLoop(() => {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (walk.on) {

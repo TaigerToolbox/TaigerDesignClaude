@@ -34,8 +34,11 @@
   .fps { position: fixed; left: 16px; bottom: 16px; font: 12px ui-monospace, monospace; background: var(--panel); padding: 3px 6px; border-radius: 5px; }
   [hidden] { display: none !important; }
   @media (max-width: 640px) {
-    .side { right: 8px; top: 60px; bottom: 80px; }
-    .levels button, .rooms button { padding: 6px 9px; font-size: 12px; }
+    /* phones: pickers become one scrolling row above the view bar, so the model keeps the screen */
+    .side { left: 12px; right: 12px; top: auto; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 58px); display: block; }
+    .levels, .rooms { flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+    .levels button, .rooms button { padding: 7px 10px; font-size: 12px; flex: none; }
+    .fps { top: 58px; bottom: auto; left: 16px; }
     .bar button { padding: 9px 11px; }
     .hint { display: none; }
   }

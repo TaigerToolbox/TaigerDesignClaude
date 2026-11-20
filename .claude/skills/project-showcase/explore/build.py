@@ -400,17 +400,19 @@ def scout_camera(b, tris, eye=1.6):
     dirs = np.concatenate([hd, [[0, 0, 1], [0, 0, -1]]])
     R = len(dirs)
     d = raycast(np.repeat(pts, R, 0), np.tile(dirs, (len(pts), 1)), tris).reshape(len(pts), R)
-    best, cam = -1, None
+    best, cam, valid = -1, None, 0
     for i, p in enumerate(pts):
-        h, up, down = np.minimum(d[i, :16], 10), d[i, 16], d[i, 17]
-        if abs(down - eye) > 0.25 or up > 5 or h.min() < 0.45:
+        h, up, down = np.minimum(d[i, :16], 6), d[i, 16], d[i, 17]  # 6 m: the geometry loaded around the room
+        if abs(down - eye) > 0.4 or up > 5 or h.min() < 0.45:  # 0.4: floor finishes sit above the space's base
             continue
+        valid += 1
         win = np.array([h[(k + np.arange(-2, 3)) % 16].mean() for k in range(16)])  # ~90 deg view
         k = int(win.argmax())
         score = 0.6 * win[k] + 0.4 * h.mean()
         if score > best:
             look = p + hd[k] * min(4.0, h[k])
             best, cam = score, {"pos": to_y(p.tolist()), "look": to_y([look[0], look[1], z0 + 1.3])}
+    print("    scout: %d of %d spots usable, best openness %.1f m" % (valid, len(pts), best))
     return cam
 
 
@@ -497,7 +499,7 @@ def build(cfg_path, force):
         boxes = []
         for i in todo:
             x0, y0, z0, x1, y1, z1 = rooms[i]["_b"]
-            boxes.append((x0 - 0.3, y0 - 0.3, z0 - 0.4, x1 + 0.3, y1 + 0.3, z0 + 5.5))
+            boxes.append((x0 - 6, y0 - 6, z0 - 0.4, x1 + 6, y1 + 6, z0 + 5.5))  # rays run past the room's box: load what they can hit
         skip_mats = {m for m, f in fin.items() if f.get("hide")}  # glazing blocks: the view should run into the room, not out
         for i, tris in zip(todo, room_triangles(os.path.join(work, "model.obj"), boxes, skip_mats)):
             r = rooms[i]
