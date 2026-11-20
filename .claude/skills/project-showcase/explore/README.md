@@ -25,6 +25,8 @@ Needs Python with `ifcopenshell` and `Pillow`, and Node. No Blender: the IFC is 
   "out": "explore",
   "finishes": ["spec-library-export.csv", "more-finishes.csv"],
   "convert_args": ["--target", "kitchen=Kitchen Island|PANTRY"],
+  "convert_per_storey": false,
+  "convert_jobs": 3,
   "skip_storeys": "DATUM|AHD",
   "ground_level": "GROUND",
   "default_level": "GROUND",
@@ -37,7 +39,8 @@ Needs Python with `ifcopenshell` and `Pillow`, and Node. No Blender: the IFC is 
 - `ifc`, `work`, `out`: relative to project.json. Keep client models and output outside this repo.
 - `finishes`: CSVs in the stills pipeline's `finishes.csv` format, tried in order. The spec library's export (`python -m speclib.lookup <data> finishes-csv <job> out.csv`) goes first. A material matches a row by exact IFC name, else by schedule code inside the name (`K TBV-02 - TIMBER VENEER OAK` matches row `TBV-02`). Colour comes from the row, else the average of the row's supplier swatch (averaged in linear light). A swatch is drawn as a texture only when the row also has a verified `tile_m`; without a real size it would be a guess. Anything unmatched is a neutral placeholder, and the viewer's "i" panel lists every material and says which are placeholders.
 - `convert_args`: passed to `ifc_to_obj.py`. Revit exports often have no IfcSpace, so make hero rooms with `--target "name=regex on element names"`.
-- `rooms`: hero rooms. `match` is a regex on the space name (or the `--target` name); the largest match wins, `storey` narrows it. The camera stands at one end of the room's long axis at 1.6 m and looks down it. Give `"camera": {"pos": [x, y, z], "look": [x, y, z]}` in model coordinates (Z up, the numbers `scene.json` uses) to place it yourself.
+- `convert_per_storey`: for big models (200 MB+). The whole-model conversion holds every shape in memory and died on a 232 MB IFC with 16 GB of RAM; this converts storey by storey, `convert_jobs` at a time, and merges. Elements not contained in any storey are left out in this mode.
+- `rooms`: hero rooms. `match` is a regex on the space name (or the `--target` name); the largest match wins, `storey` narrows it, and spaces outside the building's height (some exports carry them) are ignored. The camera is scouted on the IFC triangles: a grid of standing spots at 1.6 m inside the room, each raycast for a floor under it, a ceiling over it and 0.45 m clear all round (glazing counts as a wall, so it looks into the room, not out), and the spot with the most open 90 degree view wins. Give `"camera": {"pos": [x, y, z], "look": [x, y, z]}` in model coordinates (Z up, the numbers `scene.json` uses) to place it yourself.
 - `skip_storeys`: regex for datum levels with no building in them. `ground_level`: where the ground disc sits. `default_level`: the first cutaway level.
 
 ## What it writes
@@ -51,7 +54,7 @@ Needs Python with `ifcopenshell` and `Pillow`, and Node. No Blender: the IFC is 
   lib/three/       the few three.js modules the viewer imports (no CDN, works offline)
 ```
 
-URL parameters: `?view=exterior|cutaway|room:<id>`, `?level=<storey name or id>`, `?fps=1` (meter, continuous render). The viewer keeps the URL in sync and, inside an iframe, posts `{type: "explore:view", view, level}` to the parent.
+URL parameters: `?view=exterior|cutaway|room:<id>`, `?level=<storey name or id>`, `?fps=1` (meter, continuous render). For checks from scripts: `window.__explore.render()` draws a frame now (a page in a hidden tab doesn't animate), `.setView(kind, arg, instant)`, `.bench(n)`. The viewer keeps the URL in sync and, inside an iframe, posts `{type: "explore:view", view, level}` to the parent.
 
 ## How it works and why
 
