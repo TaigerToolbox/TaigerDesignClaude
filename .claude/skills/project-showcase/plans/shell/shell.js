@@ -51,7 +51,10 @@
   function selectStorey(id, select) {
     var st = storeyOf(id); if (!st) return;
     cur.storey = st.id;
-    document.querySelectorAll(".level").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.storey === st.id); });
+    document.querySelectorAll(".level").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.storey === st.id);
+      if (b.dataset.storey === st.id) b.parentNode.scrollLeft = b.offsetLeft - b.parentNode.offsetLeft;  // phone strip: show the chosen level
+    });
     $("#level-name").textContent = title(st.name);
     var nU = st.units.length, nR = st.rooms.length;
     $("#level-note").textContent = (nU ? nU + (nU > 1 ? " residences, " : " residence, ") : "") + nR + " areas · floor at RL " + st.elevation.toFixed(2);
@@ -78,7 +81,8 @@
     Object.keys(M.panos || {}).forEach(function (pid) {
       var p = M.panos[pid], r = byId[pid];
       if (!r || r.storey !== st.name) return;
-      var x = p.pos[0] * Math.cos(rot) - p.pos[1] * Math.sin(rot), y = p.pos[0] * Math.sin(rot) + p.pos[1] * Math.cos(rot);
+      var o = M.plan_origin || [0, 0];  // same rotate-then-shift build.py applied to the plan
+      var x = p.pos[0] * Math.cos(rot) - p.pos[1] * Math.sin(rot) - o[0], y = p.pos[0] * Math.sin(rot) + p.pos[1] * Math.cos(rot) - o[1];
       var g = document.createElementNS(ns, "rect");
       g.setAttribute("x", x - 0.2); g.setAttribute("y", -y - 0.2); g.setAttribute("width", 0.4); g.setAttribute("height", 0.4);
       g.setAttribute("class", "cam"); g.dataset.pano = pid;

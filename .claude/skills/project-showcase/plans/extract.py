@@ -260,7 +260,7 @@ def extract(ifc_path, cfg, log=print):
                 for nm, rx in rules:
                     w = [h for h in hits if rx.search(h)]
                     if w:
-                        name, why = nm, w[0].split(" Ifc")[0][:60]
+                        name, why = nm, w[0].split(":")[0].split(" Ifc")[0][:60]  # family name, not the Revit type id
                         break
                 if name == "Kitchen" and room.area > float(cfg.get("open_plan_m2", 35)):
                     name = "Open-plan kitchen"  # no walls between kitchen, dining and living: one room in the model

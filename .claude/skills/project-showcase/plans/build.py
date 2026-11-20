@@ -49,8 +49,10 @@ def square_angle(geom):
     return -((deg + 90) % 180 - 90)
 
 
-def storey_svg(st, units, rooms, rot=0.0):
-    R = lambda g: affinity.rotate(g, rot, origin=(0, 0)) if rot else g
+def storey_svg(st, units, rooms, rot=0.0, org=(0.0, 0.0)):
+    # rotate square to the page, then shift near 0: georeferenced models (northings ~5.8e6 m) lose
+    # float precision in SVG, and small text and markers vanish
+    R = lambda g: affinity.translate(affinity.rotate(g, rot, origin=(0, 0)) if rot else g, -org[0], -org[1])
     st = {**st, **{k: R(st[k]) for k in ("walls", "outline")}, **{k: [R(g) for g in st[k]] for k in ("doors", "windows", "other")}}
     units = [{**u, "poly": R(u["poly"])} for u in units]
     rooms = [{**r, "poly": R(r["poly"])} for r in rooms]
@@ -133,10 +135,11 @@ def build_plans(proj, cfg):
     storeys = []
     big = max(d["storeys"], key=lambda st: st["walls"].area)["walls"] if d["storeys"] else None
     rot = float(cfg.get("plan_rotate_deg", square_angle(big) if big is not None else 0.0))
+    org = tuple(round(v, 1) for v in affinity.rotate(big, rot, origin=(0, 0)).centroid.coords[0]) if big is not None else (0.0, 0.0)
     for st in d["storeys"]:
         us = [u for u in d["units"] if u["storey"] == st["name"]]
         rs = [r for r in d["rooms"] if r["storey"] == st["name"]]
-        open(os.path.join(plan_dir, st["id"] + ".svg"), "w", encoding="utf-8").write(storey_svg(st, us, rs, rot))
+        open(os.path.join(plan_dir, st["id"] + ".svg"), "w", encoding="utf-8").write(storey_svg(st, us, rs, rot, org))
         storeys.append({"id": st["id"], "name": st["name"], "elevation": st["elevation"], "svg": "plan/%s.svg" % st["id"],
                         "units": [u["id"] for u in us], "rooms": [r["id"] for r in rs]})
     general = finishes_for(lib, GENERAL_LOCS, plan_dir)
@@ -151,7 +154,7 @@ def build_plans(proj, cfg):
                       "centroid": [round(r["poly"].centroid.x, 3), round(r["poly"].centroid.y, 3)], "floor_z": round(r["z"], 3),
                       "spots": X.camera_spots(r["poly"]) if r["poly"].area >= 4 else []})
     plan = {"source": os.path.basename(cfg["ifc"]), "schema": d["schema"], "built": datetime.datetime.now().isoformat(timespec="minutes"),
-            "cut_height": cfg.get("extract", {}).get("cut_height", 1.2), "plan_rotation": round(rot, 2), "storeys": storeys, "units": units, "rooms": rooms,
+            "cut_height": cfg.get("extract", {}).get("cut_height", 1.2), "plan_rotation": round(rot, 2), "plan_origin": org, "storeys": storeys, "units": units, "rooms": rooms,
             "speclib": {"job": cfg["speclib"]["job"], "general": len(general)} if lib else None}
     json.dump(plan, open(os.path.join(plan_dir, "plan.json"), "w", encoding="utf-8"), indent=1)
     print("plans: %d storeys, %d units, %d rooms -> %s" % (len(storeys), len(units), len(rooms), plan_dir))
@@ -174,7 +177,7 @@ def pick_panos(plan, pcfg):
     return want
 
 
-def build_panos(proj, cfg, plan, final=False):
+def build_panos(proj, cfg, plan, final=False, rerender=False, only=None):
     pcfg = cfg.get("panos", {})
     want = pick_panos(plan, pcfg)
     if not want:
@@ -182,6 +185,14 @@ def build_panos(proj, cfg, plan, final=False):
         return
     pano_dir = os.path.join(proj, "pano")
     os.makedirs(pano_dir, exist_ok=True)
+    if only:
+        want = [r for r in want if r["id"] in only]
+    if not final and not rerender:  # resume: keep panoramas already rendered (--rerender to redo them)
+        have = json.load(open(os.path.join(pano_dir, "panos.json"))) if os.path.exists(os.path.join(pano_dir, "panos.json")) else {}
+        want = [r for r in want if not (r["id"] in have and os.path.exists(os.path.join(proj, have[r["id"]]["src"])))]
+        if not want:
+            print("panos: all selected rooms already rendered (use --rerender)")
+            return
     scripts = os.path.join(os.path.dirname(HERE), "scripts")
     storeys = [s["name"] for s in plan["storeys"]]
     by_storey = {}
@@ -196,6 +207,8 @@ def build_panos(proj, cfg, plan, final=False):
         meta = json.load(open(os.path.join(work, "scene.json")))
         off = meta.get("offset", [0, 0, 0])
         fin = os.path.join(proj, pcfg.get("finishes", "pano/finishes.csv"))
+        if cfg.get("speclib"):
+            speclib_finishes(fin, meta["materials"], os.path.join(cfg["speclib"]["dir"], "exports", "%s finishes.csv" % cfg["speclib"]["job"]))
         placeholder_finishes(fin, meta["materials"])
         size = pcfg.get("final_size", [8192, 4096]) if final else pcfg.get("size", [4096, 2048])
         shots = {"model": os.path.relpath(os.path.join(work, "model.obj"), pano_dir), "scene": os.path.relpath(os.path.join(work, "scene.json"), pano_dir),
@@ -211,6 +224,48 @@ def build_panos(proj, cfg, plan, final=False):
         json.dump(shots, open(sj, "w"), indent=1)
         print("rendering %d panoramas on %s (%dx%d, %d samples)..." % (len(rs), stname, size[0], size[1], shots["samples"]))
         subprocess.run([BLENDER, "-b", "--factory-startup", "-P", os.path.join(HERE, "pano_render.py"), "--", sj], check=True)
+
+
+def code_of(name):
+    """Schedule code in a material name: '*BR01_Grey Brick' -> BR01, 'K-TIM-01 - Hekke' -> TIM01, 'PA-02 - CEILING' -> PA02."""
+    m = re.search(r"(?<![A-Za-z])([A-Z]{2,4})[ _-]?(\d{2})(?!\d)", name.upper())
+    return m.group(1) + m.group(2) if m else None
+
+
+def speclib_finishes(path, materials, export):
+    """Approved finishes from the spec library export (speclib finishes-csv) onto the model's materials:
+    an exact name match, else the schedule code in the material name. Only rows the library has given a
+    colour are used; the rest keep what pano/finishes.csv already had. Writes finishes_match.txt beside
+    it so every match can be checked against the surface it lands on."""
+    if not os.path.exists(export):
+        return
+    rows = [r for r in csv.DictReader(open(export, encoding="utf-8-sig")) if r.get("color")]
+    exact = {r["ifc_material"]: r for r in rows}
+    bycode = {}
+    for r in rows:  # code fallback only for rows keyed by a bare code ("TIL01"); a named row
+        if code_of(r["ifc_material"]) and re.fullmatch(r"[A-Z]{2,4}[ _-]?\d{2}", r["ifc_material"].strip()):  # ("MET-01 - WINDOW FRAMES") is exact-name only
+            bycode.setdefault(code_of(r["ifc_material"]), r)
+    have = {r["ifc_material"]: r for r in csv.DictReader(open(path, encoding="utf-8-sig"))} if os.path.exists(path) else {}
+    log = []
+    for m in materials:
+        r = exact.get(m) or bycode.get(code_of(m) or "\0")
+        if not r:
+            continue
+        # approved values win; an existing texture, scale or board pattern stays where the library has none
+        have[m] = {**have.get(m, {}), **{k: v for k, v in r.items() if v}, "ifc_material": m,
+                   "source": "APPROVED (spec library export): " + r["source"]}
+        log.append("%-45s <- %-28s %s %s" % (m, r["ifc_material"], r["color"], r["source"][:90]))
+    cols = []
+    for r in have.values():
+        cols += [c for c in r if c not in cols]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(have.values())
+    open(os.path.join(os.path.dirname(path), "finishes_match.txt"), "w", encoding="utf-8").write(
+        "IFC material <- spec library code, colour, source (check each lands on the right surface)\n" + "\n".join(log) + "\n")
+    print("finishes: %d of %d model materials take approved spec library finishes" % (len(log), len(materials)))
 
 
 def placeholder_finishes(path, materials):
@@ -255,7 +310,7 @@ def build_manifest(proj, cfg, plan):
             p["hotspots"].append({"to": qid, "label": o["name"], "yaw": round(math.degrees(math.atan2(dx, dy)), 1),
                                   "pitch": round(-math.degrees(math.atan2(p["pos"][2] - r["floor_z"] - 0.4, dist)), 1), "dist": round(dist, 1)})
     m = {"name": cfg["name"], "subtitle": cfg.get("subtitle", ""), "disclaimer": cfg.get("disclaimer", ""),
-         "source": plan["source"], "built": plan["built"], "cut_height": plan["cut_height"], "plan_rotation": plan.get("plan_rotation", 0), "speclib": plan["speclib"],
+         "source": plan["source"], "built": plan["built"], "cut_height": plan["cut_height"], "plan_rotation": plan.get("plan_rotation", 0), "plan_origin": plan.get("plan_origin", [0, 0]), "speclib": plan["speclib"],
          "storeys": plan["storeys"], "units": plan["units"], "rooms": plan["rooms"], "panos": panos,
          "hero": cfg.get("hero", []), "explore": "explore/index.html"}
     for r in m["rooms"]:
@@ -278,6 +333,8 @@ def main():
     ap.add_argument("project")
     ap.add_argument("--panos", action="store_true", help="render the 360 panoramas (Blender)")
     ap.add_argument("--final", action="store_true", help="final-quality panoramas (GPU)")
+    ap.add_argument("--only", help="comma list of pano room ids to render (one at a time on a shared CPU)")
+    ap.add_argument("--rerender", action="store_true", help="render panoramas again even if they exist")
     ap.add_argument("--skip-plans", action="store_true", help="reuse plan/plan.json")
     a = ap.parse_args()
     proj = os.path.abspath(a.project)
@@ -285,7 +342,7 @@ def main():
     pj = os.path.join(proj, "plan", "plan.json")
     plan = json.load(open(pj, encoding="utf-8")) if a.skip_plans and os.path.exists(pj) else build_plans(proj, cfg)
     if a.panos:
-        build_panos(proj, cfg, plan, a.final)
+        build_panos(proj, cfg, plan, a.final, a.rerender, a.only.split(",") if a.only else None)
     build_manifest(proj, cfg, plan)
     build_shell(proj)
     print("done: serve %s and open index.html" % proj)
