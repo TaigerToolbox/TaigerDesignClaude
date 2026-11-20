@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Project showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" href="assets/taiger-emblem.png">
+  <link rel="stylesheet" href="shell.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#top" data-bind="name"></a>
+    <nav aria-label="Sections">
+      <a href="#plans">Plans</a>
+      <a href="#panoramas">Panoramas</a>
+      <a href="#explore">3D</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="intro">
+      <p class="eyebrow" data-bind="subtitle"></p>
+      <h1 data-bind="name"></h1>
+      <p class="muted small" id="source-line"></p>
+    </section>
+
+    <section id="plans" class="band">
+      <div class="band-head">
+        <p class="eyebrow">Plans</p>
+        <h2>Choose a level</h2>
+      </div>
+      <div class="plans">
+        <div class="stack" id="stack" aria-label="Levels"></div>
+        <div class="plan-col">
+          <div class="plan-head"><h3 id="level-name"></h3><p class="muted small" id="level-note"></p></div>
+          <div class="plan" id="plan" aria-live="polite"></div>
+          <p class="muted small">Tap a room or apartment. Plans are cut through the model at <span id="cut"></span> m, like an architect's floor plan.</p>
+        </div>
+        <aside class="detail" id="detail" hidden>
+          <button class="close" type="button" aria-label="Close details">Close</button>
+          <p class="eyebrow" id="d-kind"></p>
+          <h3 id="d-name"></h3>
+          <dl id="d-facts"></dl>
+          <div class="actions" id="d-actions"></div>
+          <div id="d-finishes"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="panoramas" class="band">
+      <div class="band-head">
+        <p class="eyebrow">360 panoramas</p>
+        <h2>Stand in the room</h2>
+      </div>
+      <div class="pano-tabs" id="pano-tabs" role="tablist"></div>
+      <div class="pano" id="pano">
+        <canvas></canvas>
+        <div class="pano-spots"></div>
+        <p class="pano-hint">Drag to look around. Tap a label to walk to that room.</p>
+        <p class="stamp" id="pano-stamp"></p>
+      </div>
+      <p class="muted small" id="pano-note"></p>
+    </section>
+
+    <section id="explore" class="band">
+      <div class="band-head">
+        <p class="eyebrow">3D</p>
+        <h2>Explore the building</h2>
+      </div>
+      <div class="explore" id="explore-box"></div>
+    </section>
+
+    <section id="stills" class="band" hidden>
+      <div class="band-head"><p class="eyebrow">Renders</p><h2>Stills</h2></div>
+      <div class="stills" id="stills-list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div>
+      <p class="brand" data-bind="name"></p>
+      <p class="muted small footer-disclaimer" id="disclaimer"></p>
+    </div>
+    <a class="credit" href="https://taigergroup.com.au" target="_blank" rel="noopener">
+      <img src="assets/taiger-emblem.png" alt="" width="20" height="20"> Built by Taiger Group
+    </a>
+  </footer>
+
+  <script src="pano.js"></script>
+  <script src="shell.js"></script>
+</body>
+</html>
